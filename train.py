@@ -5,8 +5,11 @@ import torch
 import sklearn
 import numpy as np
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
+from sklearn.model_selection import KFold, StratifiedKFold
 from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, Trainer, TrainingArguments, RobertaConfig, RobertaTokenizer, RobertaForSequenceClassification, BertTokenizer
 from load_data import *
+import wandb
+import random
 
 
 def klue_re_micro_f1(preds, labels):
@@ -65,38 +68,66 @@ def label_to_num(label):
   
   return num_label
 
+def seed_everything(seed):
+  torch.manual_seed(seed)
+  torch.cuda.manual_seed(seed)
+  torch.cuda.manual_seed_all(seed)  # if use multi-GPU
+  torch.backends.cudnn.deterministic = True
+  torch.backends.cudnn.benchmark = False
+  np.random.seed(seed)
+  random.seed(seed)
+
 def train():
   # load model and tokenizer
   # MODEL_NAME = "bert-base-uncased"
+  seed_everything(42)
+  wandb.init(project='klue', entity='quarter100')
+  config = wandb.config
+  config.learning_rate = 5e-5
+  config.name = "basecode"
+  config.seed = 42
+  config.epoch = 5
+  config.per_device_train_batch_size = 16
+  config.per_device_eval_batch_size = 16
+  config.warmup_steps = 500
+  config.weight_decay = 0.01
+
+  device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+  print(device)
+
   MODEL_NAME = "klue/bert-base"
   tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
   # load dataset
-  train_dataset = load_data("../dataset/train/train.csv")
-  # dev_dataset = load_data("../dataset/train/dev.csv") # validation용 데이터는 따로 만드셔야 합니다.
+  #train_dataset = load_data("../dataset/train/train.csv")
+  default_dataset = load_data("../dataset/train/train.csv") # validation용 데이터는 따로 만드셔야 합니다.
 
-  train_label = label_to_num(train_dataset['label'].values)
-  # dev_label = label_to_num(dev_dataset['label'].values)
+  #train_label = label_to_num(train_dataset['label'].values)
+  default_label = label_to_num(default_dataset['label'].values)
 
-  # tokenizing dataset
-  tokenized_train = tokenized_dataset(train_dataset, tokenizer)
-  # tokenized_dev = tokenized_dataset(dev_dataset, tokenizer)
+  kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+  for fold, (train_idx, val_idx) in enumerate(kfold.split(default_dataset, default_label)):
+    print(f"{fold} FOLD")
 
-  # make dataset for pytorch.
-  RE_train_dataset = RE_Dataset(tokenized_train, train_label)
-  # RE_dev_dataset = RE_Dataset(tokenized_dev, dev_label)
+    train_label = label_to_num(default_dataset['label'].iloc[train_idx].values)
+    valid_label = label_to_num(default_dataset['label'].iloc[val_idx].values)
 
-  device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    train_dataset = default_dataset.iloc[train_idx]
+    valid_dataset = default_dataset.iloc[val_idx]
 
-  print(device)
-  # setting model hyperparameter
-  model_config =  AutoConfig.from_pretrained(MODEL_NAME)
-  model_config.num_labels = 30
+    tokenized_train = tokenized_dataset(train_dataset, tokenizer)
+    tokenized_valid = tokenized_dataset(valid_dataset, tokenizer)
 
-  model =  AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, config=model_config)
-  print(model.config)
-  model.parameters
-  model.to(device)
+    RE_train_dataset = RE_Dataset(tokenized_train, train_label)
+    RE_valid_dataset = RE_Dataset(tokenized_valid, valid_label)
+
+    model_config = AutoConfig.from_pretrained(MODEL_NAME)
+    model_config.num_labels = 30
+    model =  AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, config=model_config)
+    print(model.config)
+    model.parameters
+    model.to(device)
+
   
   # 사용한 option 외에도 다양한 option들이 있습니다.
   # https://huggingface.co/transformers/main_classes/trainer.html#trainingarguments 참고해주세요.
@@ -104,7 +135,7 @@ def train():
     output_dir='./results',          # output directory
     save_total_limit=5,              # number of total save model.
     save_steps=500,                 # model saving step.
-    num_train_epochs=20,              # total number of training epochs
+    num_train_epochs=5,              # total number of training epochs
     learning_rate=5e-5,               # learning_rate
     per_device_train_batch_size=16,  # batch size per device during training
     per_device_eval_batch_size=16,   # batch size for evaluation
@@ -117,13 +148,14 @@ def train():
                                 # `steps`: Evaluate every `eval_steps`.
                                 # `epoch`: Evaluate every end of epoch.
     eval_steps = 500,            # evaluation step.
-    load_best_model_at_end = True 
+    load_best_model_at_end = True,
+    report_to="wandb"
   )
   trainer = Trainer(
     model=model,                         # the instantiated 🤗 Transformers model to be trained
     args=training_args,                  # training arguments, defined above
     train_dataset=RE_train_dataset,         # training dataset
-    eval_dataset=RE_train_dataset,             # evaluation dataset
+    eval_dataset=RE_valid_dataset,             # evaluation dataset
     compute_metrics=compute_metrics         # define metrics function
   )
 
