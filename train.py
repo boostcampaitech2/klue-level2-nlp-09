@@ -85,16 +85,6 @@ def train():
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print(device)
 
-    # setting model hyperparameter
-    model_config = AutoConfig.from_pretrained(MODEL_NAME)
-    model_config.num_labels = 30
-
-    model = AutoModelForSequenceClassification.from_pretrained(
-        MODEL_NAME, config=model_config)
-    print(model.config)
-    model.parameters
-    model.to(device)
-
     # kfold
     kfold = []
 
@@ -116,6 +106,16 @@ def train():
         # make dataset for pytorch.
         RE_train_dataset = RE_Dataset(tokenized_train, train_label)
         RE_val_dataset = RE_Dataset(tokenized_val, val_label)
+
+        # setting model hyperparameter
+        model_config = AutoConfig.from_pretrained(MODEL_NAME)
+        model_config.num_labels = 30
+
+        model = AutoModelForSequenceClassification.from_pretrained(
+            MODEL_NAME, config=model_config)
+        # print(model.config)
+        model.parameters
+        model.to(device)
 
         # 사용한 option 외에도 다양한 option들이 있습니다.
         # https://huggingface.co/transformers/main_classes/trainer.html#trainingarguments 참고해주세요.
@@ -149,7 +149,7 @@ def train():
         )
 
         trainer.train()
-        model.save_pretrained('./best_model')
+        model.save_pretrained('./best_model/'+str(fold))
 
 
 def main():
