@@ -27,6 +27,10 @@ def preprocessing_dataset(dataset):
         i = i[1:-1].split(',')[0].split(':')[1].split('\'')[1]
         j = j[1:-1].split(',')[0].split(':')[1].split('\'')[1]
 
+        remove_comma = lambda x: ''.join(x.split(',')) if ',' in x else x
+        i = remove_comma(i)
+        j = remove_comma(j)
+
         subject_entity.append(i)
         object_entity.append(j)
     out_dataset = pd.DataFrame({'id':dataset['id'], 'sentence':dataset['sentence'],'subject_entity':subject_entity,'object_entity':object_entity,'label':dataset['label'],})
@@ -55,5 +59,6 @@ def tokenized_dataset(dataset, tokenizer):
         truncation=True,
         max_length=256,
         add_special_tokens=True,
+        return_token_type_ids=False
         )
     return tokenized_sentences
