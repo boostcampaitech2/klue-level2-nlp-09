@@ -3,10 +3,10 @@ import os
 import pandas as pd
 import torch
 import sklearn
+import argparse
 import numpy as np
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
 from sklearn.model_selection import KFold, StratifiedKFold
-from sklearn.model_selection import train_test_split
 from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, Trainer, TrainingArguments, RobertaConfig, RobertaTokenizer, RobertaForSequenceClassification, BertTokenizer
 from load_data import *
 
@@ -117,26 +117,29 @@ def train():
         model.parameters
         model.to(device)
 
+        save_dir = './results/' + MODEL_NAME + '/' + str(fold)
         # 사용한 option 외에도 다양한 option들이 있습니다.
         # https://huggingface.co/transformers/main_classes/trainer.html#trainingarguments 참고해주세요.
         training_args = TrainingArguments(
-            output_dir='./results/' + MODEL_NAME + '/' +
-            str(fold),        # output directory
-            save_total_limit=5,              # number of total save model.
-            save_steps=1624,                 # model saving step.
-            num_train_epochs=5,              # total number of training epochs
-            learning_rate=1e-05,               # learning_rate
-            per_device_train_batch_size=16,  # batch size per device during training
-            per_device_eval_batch_size=16,   # batch size for evaluation
-            warmup_steps=200,                # number of warmup steps for learning rate scheduler
-            weight_decay=0.01,               # strength of weight decay
+            output_dir=save_dir,        # output directory
+            save_total_limit=1,              # number of total save model.
+            save_steps=args.save_steps,                 # model saving step.
+            num_train_epochs=args.epochs,              # total number of training epochs
+            learning_rate=args.lr,               # learning_rate
+            # batch size per device during training
+            per_device_train_batch_size=args.batch,
+            per_device_eval_batch_size=args.batch_valid,   # batch size for evaluation
+            # number of warmup steps for learning rate scheduler
+            warmup_steps=args.warmup,
+            weight_decay=args.weight_decay,               # strength of weight decay
             logging_dir='./logs',            # directory for storing logs
-            logging_steps=100,              # log saving step.
+            logging_steps=args.logging_steps,              # log saving step.
+            metric_for_best_model='micro f1 score',
             evaluation_strategy='steps',  # evaluation strategy to adopt during training
             # `no`: No evaluation during training.
             # `steps`: Evaluate every `eval_steps`.
             # `epoch`: Evaluate every end of epoch.
-            eval_steps=406,            # evaluation step.
+            eval_steps=args.eval_steps,            # evaluation step.
             load_best_model_at_end=True
         )
         trainer = Trainer(
@@ -157,4 +160,35 @@ def main():
 
 
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--seed', type=int, default=42,
+                        help='random seed (default: 42)')
+    parser.add_argument('--fold', type=int, default=5,
+                        help='fold (default: 5)')
+    parser.add_argument('--model', type=str, default='xlm-roberta-large',
+                        help='model type (default: xlm-roberta-large)')
+    parser.add_argument('--epochs', type=int, default=5,
+                        help='number of epochs to train (default: 5)')
+    parser.add_argument('--lr', type=float, default=1e-5,
+                        help='learning rate (default: 5e-5)')
+    parser.add_argument('--batch', type=int, default=16,
+                        help='input batch size for training (default: 16)')
+    parser.add_argument('--batch_valid', type=int, default=16,
+                        help='input batch size for validing (default: 16)')
+    parser.add_argument('--warmup', type=int, default=200,
+                        help='warmup_steps (default: 200)')
+    parser.add_argument('--eval_steps', type=int, default=406,
+                        help='eval_steps (default: 406)')
+    parser.add_argument('--save_steps', type=int, default=406,
+                        help='save_steps (default: 406)')
+    parser.add_argument('--logging_steps', type=int,
+                        default=100, help='logging_steps (default: 100)')
+    parser.add_argument('--weight_decay', type=float,
+                        default=0.01, help='weight_decay (default: 0.01)')
+    parser.add_argument('--metric_for_best_model', type=str, default='micro f1 score',
+                        help='metric_for_best_model (default: micro f1 score')
+
+    args = parser.parse_args()
+    print(args)
     main()
