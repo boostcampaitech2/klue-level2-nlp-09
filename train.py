@@ -163,7 +163,10 @@ def train():
             eval_steps = args.eval_steps,            # evaluation step.
             load_best_model_at_end = True, 
             seed = args.seed,
-            overwrite_output_dir = False
+            overwrite_output_dir = False,
+            fp16=args.fp16,
+            fp16_full_eval=args.fp16,
+            fp16_backend='apex'
         )
     
         trainer = Trainer(
@@ -181,24 +184,25 @@ def train():
         model.save_pretrained('./best_model')
     
 def main():
-    #torch.cuda.empty_cache()
+    torch.cuda.empty_cache()
     train()
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
-    parser.add_argument('--fold', type=int, default=5, help='fold (default: 5)')
-    parser.add_argument('--model', type=str, default='xlm-roberta-large', help='model type (default: xlm-roberta-large)')
-    parser.add_argument('--epochs', type=int, default=5, help='number of epochs to train (default: 5)')
+    parser.add_argument('--fold', type=int, default=2, help='fold (default: 5)')
+    parser.add_argument('--model', type=str, default='klue/roberta-base', help='model type (default: klue/roberta-base)')
+    parser.add_argument('--epochs', type=int, default=1, help='number of epochs to train (default: 5)')
     parser.add_argument('--lr', type=float, default=1e-5, help='learning rate (default: 5e-5)')
-    parser.add_argument('--batch', type=int, default=16, help='input batch size for training (default: 16)')
-    parser.add_argument('--batch_valid', type=int, default=16, help='input batch size for validing (default: 16)')
-    parser.add_argument('--warmup', type=int, default=200, help='warmup_steps (default: 200)')
+    parser.add_argument('--batch', type=int, default=150, help='input batch size for training (default: 16)')
+    parser.add_argument('--batch_valid', type=int, default=100, help='input batch size for validing (default: 16)')
+    parser.add_argument('--warmup', type=int, default=150, help='warmup_steps (default: 200)')
     parser.add_argument('--eval_steps', type=int, default=406, help='eval_steps (default: 406)')
     parser.add_argument('--save_steps', type=int, default=406, help='save_steps (default: 406)')
     parser.add_argument('--logging_steps', type=int, default=100, help='logging_steps (default: 100)')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='weight_decay (default: 0.01)')
+    parser.add_argument('--fp16', default=False, action='store_true', help='using fp16 mixed precision')
     
     args = parser.parse_args()
     print(args)
