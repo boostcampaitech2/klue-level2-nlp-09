@@ -81,8 +81,8 @@ def load_data(data):
                           'subject_type': sub_type, 'object_type': obj_type, 'label': data['label'],
                           'subject_idx': sub_idx, 'object_idx': obj_idx})
 
-  for i in range(10):    
-    print(f"SUB : {df.loc[i]['subject_entity']}\nOBJ : {df.loc[i]['object_entity']}\nSENTENCE : {df.loc[i]['sentence']}\n\n")
+#  for i in range(10):
+#    print(f"SUB : {df.loc[i]['subject_entity']}\nOBJ : {df.loc[i]['object_entity']}\nSENTENCE : {df.loc[i]['sentence']}\n\n")
   
   return df
 
