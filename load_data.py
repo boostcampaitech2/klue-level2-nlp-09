@@ -2,7 +2,9 @@ import pickle as pickle
 import os
 import pandas as pd
 import torch
+from config_parser import JsonConfigFileManager
 
+conf = JsonConfigFileManager('./config.json')
 
 class RE_Dataset(torch.utils.data.Dataset):
   """ Dataset 구성을 위한 class."""
@@ -32,7 +34,7 @@ def preprocessing_dataset(dataset):
   return out_dataset
 
 def load_data(dataset_dir):
-  """ csv 파일을 경로에 맡게 불러 옵니다. """
+  """ csv 파일을 경로에 맞게 불러 옵니다. """
   pd_dataset = pd.read_csv(dataset_dir)
   dataset = preprocessing_dataset(pd_dataset)
   
@@ -49,9 +51,10 @@ def tokenized_dataset(dataset, tokenizer):
       concat_entity,
       list(dataset['sentence']),
       return_tensors="pt",
-      padding=True,
-      truncation=True,
-      max_length=256,
-      add_special_tokens=True,
+      padding = conf.values['toknizer_options']['padding'],
+      truncation=conf.values['toknizer_options']['truncation'],
+      max_length=conf.values['toknizer_options']['max_length'],
+      add_special_tokens=conf.values['toknizer_options']['add_special_tokens'],
+      return_token_type_ids=conf.values['toknizer_options']['return_token_type_ids'] # roberta 계열:false로
       )
   return tokenized_sentences

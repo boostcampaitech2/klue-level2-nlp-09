@@ -1,0 +1,33 @@
+{
+    "test_name": "실험 아이디어를 간단하게 적어주세요",
+    "model_name": "klue/bert-base",
+    "random_seed": 42,
+    "data":{
+        "train_data": "../dataset/train/train.csv"
+    },
+
+    "toknizer_options": {
+        "padding" : true,
+        "truncation" : true,
+        "max_length" : 256,
+        "add_special_tokens" : true,
+        "return_token_type_ids" : true
+    },
+
+    "huggingface_options":{
+        "output_dir" : "./results",       
+        "save_total_limit" : 5,             
+        "save_steps" : 500,  
+        "num_train_epochs" : 20,       
+        "learning_rate" : 5e-5,         
+        "per_device_train_batch_size" : 16, 
+        "per_device_eval_batch_size" : 16, 
+        "warmup_steps" : 500,           
+        "weight_decay" : 0.01,          
+        "logging_dir" : "./logs",    
+        "logging_steps" : 100,        
+        "evaluation_strategy": "steps",
+        "eval_steps" : 500,
+        "load_best_model_at_end" : true  
+    }
+}   

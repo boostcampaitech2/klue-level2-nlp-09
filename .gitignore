@@ -1,0 +1,10 @@
+## git에 안올릴 file 설정
+*__pycache__
+*.git
+*.ipynb_checkpoints 
+*best_model
+*wandb
+*logs
+*prediction
+*results
+*.pkl**
