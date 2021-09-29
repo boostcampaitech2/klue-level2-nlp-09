@@ -3,7 +3,7 @@ import os
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
-from konlpy.tag import Mecab
+# from konlpy.tag import Mecab
 
 import os
 from tokenizers import BertWordPieceTokenizer
@@ -90,7 +90,7 @@ def load_data(data):
 
 if __name__ == '__main__':
 
-  TRAIN_PATH= '/opt/ml/dataset/train/train.csv'
+  TRAIN_PATH= '/home/ubuntu/dataset/train/train.csv'
 
   data= pd.read_csv(TRAIN_PATH)
   load_data(data)
