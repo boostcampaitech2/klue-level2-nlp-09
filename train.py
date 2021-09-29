@@ -12,7 +12,7 @@ import wandb
 from pathlib import Path
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
 from sklearn.model_selection import KFold, StratifiedKFold
-from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, Trainer, TrainingArguments, RobertaConfig, RobertaTokenizer, RobertaForSequenceClassification, BertTokenizer
+from transformers import BertTokenizerFast, AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, Trainer, TrainingArguments, RobertaConfig, RobertaTokenizer, RobertaForSequenceClassification, BertTokenizer
 from load_data import *
 
 def seed_everything(seed):
@@ -107,6 +107,8 @@ def train():
     # load model and tokenizer
     # MODEL_NAME = "bert-base-uncased"
     MODEL_NAME = args.model
+    print(f'MODEL_NAME={MODEL_NAME}')
+
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
     # load dataset
@@ -125,8 +127,8 @@ def train():
         valid_dataset = default_dataset.iloc[val_idx]
         
         # tokenizing dataset
-        tokenized_train = tokenized_dataset(train_dataset, tokenizer)
-        tokenized_valid = tokenized_dataset(valid_dataset, tokenizer)
+        tokenized_train = tokenized_dataset(train_dataset, tokenizer, args.model)
+        tokenized_valid = tokenized_dataset(valid_dataset, tokenizer, args.model)
 
         # make dataset for pytorch.
         RE_train_dataset = RE_Dataset(tokenized_train, train_label)
@@ -141,12 +143,12 @@ def train():
         model.to(device)
 
         
-        save_dir = increment_path('./results/expeiment')
+        save_dir = increment_path('./results/' + args.model)
         # 사용한 option 외에도 다양한 option들이 있습니다.
         # https://huggingface.co/transformers/main_classes/trainer.html#trainingarguments 참고해주세요.
         training_args = TrainingArguments(
             output_dir=save_dir,          # output directory
-            save_total_limit=100,              # number of total save model.
+            save_total_limit=3,              # number of total save model.
             save_steps=args.save_steps,                 # model saving step.
             num_train_epochs=args.epochs,              # total number of training epochs
             learning_rate=args.lr,               # learning_rate
@@ -184,7 +186,10 @@ def train():
         #wandb.init(project='P2', group=CFG.MODEL_NAME, name=save_dir.split('/')[-1], tags=CFG.tag, config=CFG)
         
         trainer.train()
-        model.save_pretrained('./best_model')
+        model.save_pretrained('./best_model/' + str(fold))
+
+        if fold == 0:
+            break
     
 def main():
     torch.cuda.empty_cache()

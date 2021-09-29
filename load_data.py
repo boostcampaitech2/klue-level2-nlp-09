@@ -43,7 +43,7 @@ def load_data(dataset_dir):
 
     return dataset
 
-def tokenized_dataset(dataset, tokenizer):
+def tokenized_dataset(dataset, tokenizer, model):
     """ tokenizer에 따라 sentence를 tokenizing 합니다."""
     concat_entity = []
     for e01, e02 in zip(dataset['subject_entity'], dataset['object_entity']):
@@ -59,6 +59,6 @@ def tokenized_dataset(dataset, tokenizer):
         truncation=True,
         max_length=256,
         add_special_tokens=True,
-        return_token_type_ids=False
+        return_token_type_ids=False if 'robert' in model else True
         )
     return tokenized_sentences
