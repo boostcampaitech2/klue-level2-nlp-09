@@ -112,7 +112,7 @@ def train():
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
     # load dataset
-    default_dataset = load_data("../dataset/train/train.csv")
+    default_dataset = load_data("/home/ubuntu/dataset/train/train.csv")
     default_label = label_to_num(default_dataset['label'].values)
     
     #K-fold
@@ -200,11 +200,11 @@ if __name__ == '__main__':
     
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
     parser.add_argument('--fold', type=int, default=5, help='fold (default: 5)')
-    parser.add_argument('--model', type=str, default='klue/roberta-base', help='model type (default: klue/roberta-base)')
-    parser.add_argument('--epochs', type=int, default=10, help='number of epochs to train (default: 5)')
+    parser.add_argument('--model', type=str, default='klue/roberta-large', help='model type (default: klue/roberta-large)')
+    parser.add_argument('--epochs', type=int, default=5, help='number of epochs to train (default: 5)')
     parser.add_argument('--lr', type=float, default=1e-5, help='learning rate (default: 5e-5)')
-    parser.add_argument('--batch', type=int, default=64, help='input batch size for training (default: 16)')
-    parser.add_argument('--batch_valid', type=int, default=64, help='input batch size for validing (default: 16)')
+    parser.add_argument('--batch', type=int, default=16, help='input batch size for training (default: 16)')
+    parser.add_argument('--batch_valid', type=int, default=16, help='input batch size for validing (default: 16)')
     parser.add_argument('--warmup', type=int, default=150, help='warmup_steps (default: 200)')
     parser.add_argument('--eval_steps', type=int, default=406, help='eval_steps (default: 406)')
     parser.add_argument('--save_steps', type=int, default=406, help='save_steps (default: 406)')
@@ -225,6 +225,6 @@ if __name__ == '__main__':
     CFG.FOLD = range(CFG.NUM_FOLD)   # if you want to do just simple test, set this [0]
     CFG.MODEL_NAME = args.model
     '''
-    
+    print(torch.__version__)
     main()
     print(f'elapsed time = {(time.time() - prev) / 60} minutes')
