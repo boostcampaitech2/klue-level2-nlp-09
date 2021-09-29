@@ -1,0 +1,17 @@
+name: model check
+project: huggingface
+program: train.py
+method: bayes
+metric:
+  name: micro f1 score
+  goal: maximize
+parameters:
+  model:
+    values: ["kykim/albert-kor-base", 'klue/robert-large', "xlm-roberta-large", "roberta-large", "twitter-xlm-roberta-base", "bert-base-multilingual-cased",
+    "distilbert-base-multilingual-cased", "monologg/koelectra-base-generator", "krevas/finance-koelectra-base-generator",
+    "deeq/delectra-generator", "deeq/dbert"]
+command:
+  - ${interpreter}
+  - ${program}
+  - ${args}
+  - "--fp16"
