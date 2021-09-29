@@ -1,4 +1,4 @@
-name: model check
+name: model check 3
 project: huggingface
 program: train.py
 method: bayes
