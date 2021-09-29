@@ -58,12 +58,10 @@ def klue_re_micro_f1(preds, labels):
     label_indices = list(range(len(label_list)))
     label_indices.remove(no_relation_label_idx)
     return sklearn.metrics.f1_score(labels, preds, average="micro", labels=label_indices) * 100.0
-    #return sklearn.metrics.f1_score(labels, preds, average="micro", labels=label_indices, sample_weight = [0]+[1]*29) * 100.0
 
 def klue_re_auprc(probs, labels):
     """KLUE-RE AUPRC (with no_relation)"""
     labels = np.eye(30)[labels]
-
     score = np.zeros((30,))
     for c in range(30):
         targets_c = labels.take([c], axis=1).ravel()
@@ -141,7 +139,7 @@ def train():
         model.to(device)
 
         
-        save_dir = increment_path('./results/expeiment')
+        save_dir = increment_path('./results/'+MODEL_NAME)
         # 사용한 option 외에도 다양한 option들이 있습니다.
         # https://huggingface.co/transformers/main_classes/trainer.html#trainingarguments 참고해주세요.
         training_args = TrainingArguments(
@@ -163,7 +161,8 @@ def train():
             eval_steps = args.eval_steps,            # evaluation step.
             load_best_model_at_end = True, 
             seed = args.seed,
-            overwrite_output_dir = False
+            metric_for_best_model='micro f1 score',
+            report_to = "wandb"
         )
     
         trainer = Trainer(
@@ -176,9 +175,10 @@ def train():
 
         # train model
         #wandb.init(project='P2', group=CFG.MODEL_NAME, name=save_dir.split('/')[-1], tags=CFG.tag, config=CFG)
-        
+        run = wandb.init(project='klue', entity='quarter100')
         trainer.train()
-        model.save_pretrained('./best_model')
+        model.save_pretrained('./best_model'+fold)
+        run.finish()
     
 def main():
     #torch.cuda.empty_cache()
