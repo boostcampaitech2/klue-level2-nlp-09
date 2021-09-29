@@ -134,7 +134,7 @@ def train():
             weight_decay=args.weight_decay,               # strength of weight decay
             logging_dir='./logs',            # directory for storing logs
             logging_steps=args.logging_steps,              # log saving step.
-            metric_for_best_model='micro f1 score',
+            metric_for_best_model=args.metric_for_best_model,
             evaluation_strategy='steps',  # evaluation strategy to adopt during training
             # `no`: No evaluation during training.
             # `steps`: Evaluate every `eval_steps`.
