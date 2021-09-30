@@ -2,9 +2,11 @@
 *__pycache__
 *.git
 *.ipynb_checkpoints 
-*best_model
+*best_model**
 *wandb
 *logs
 *prediction
 *results
 *.pkl**
+*config.py
+
