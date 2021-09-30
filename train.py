@@ -121,6 +121,8 @@ def train():
     
     #K-fold
     kfold = StratifiedKFold(n_splits=args.fold, shuffle=True, random_state=args.seed)
+
+    date_time = date.today().isoformat()
     for fold, (train_idx, val_idx) in enumerate(kfold.split(default_dataset, default_label)):
         print(f"{fold} FOLD")
         
@@ -147,7 +149,7 @@ def train():
         model.to(device)
 
         
-        save_dir = increment_path('./results/' + date.today().isoformat() + '/' + args.model)
+        save_dir = increment_path(f'./results/{date_time}/{fold}/{args.model}')
         # 사용한 option 외에도 다양한 option들이 있습니다.
         # https://huggingface.co/transformers/main_classes/trainer.html#trainingarguments 참고해주세요.
         training_args = TrainingArguments(
@@ -176,7 +178,7 @@ def train():
             fp16_backend='amp',
             metric_for_best_model='micro f1 score',
             report_to='wandb',
-            run_name = args.model + str(hex(uuid.getnode())),
+            run_name = args.model + str(hex(uuid.getnode()))[2:5],
             label_smoothing_factor=0.1
         )
     
@@ -194,9 +196,6 @@ def train():
         
         trainer.train()
         model.save_pretrained('./best_model/' + str(fold))
-
-        if fold == 0:
-            break
     
 def main():
     torch.cuda.empty_cache()
@@ -211,8 +210,8 @@ if __name__ == '__main__':
     parser.add_argument('--epochs', type=int, default=10, help='number of epochs to train (default: 5)')
     parser.add_argument('--loss', type=str, default='FocalLoss', help='train loss (default: FocalLoss)')
     parser.add_argument('--lr', type=float, default=3e-5, help='learning rate (default: 5e-5)')
-    parser.add_argument('--batch', type=int, default=32, help='input batch size for training (default: 16)')
-    parser.add_argument('--batch_valid', type=int, default=32, help='input batch size for validing (default: 16)')
+    parser.add_argument('--batch', type=int, default=28, help='input batch size for training (default: 16)')
+    parser.add_argument('--batch_valid', type=int, default=28, help='input batch size for validing (default: 16)')
     parser.add_argument('--warmup', type=int, default=812, help='warmup_steps (default: 200)')
     parser.add_argument('--eval_steps', type=int, default=406, help='eval_steps (default: 406)')
     parser.add_argument('--save_steps', type=int, default=406, help='save_steps (default: 406)')
