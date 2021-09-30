@@ -94,10 +94,14 @@ def tokenized_dataset(dataset, tokenizer):
       return_token_type_ids=False
       )
   
-  # check decoded token
-  for i in range(10):
-    text_enc= tokenizer.encode(list(dataset['sentence'])[i], add_special_tokens=True)
-    text_dec= tokenizer.decode(text_enc)
-    print(text_dec)
+  # # check decoded, tokenized token
+  # for i in range(10):
+  #   text_tok= tokenizer.tokenize(list(dataset['sentence'])[i], add_special_tokens=True)
+
+  #   text_enc= tokenizer.encode(list(dataset['sentence'])[i], add_special_tokens=True)
+  #   text_dec= tokenizer.decode(text_enc)
+  #   print(text_dec)
+  #   print(text_tok)
+  #   print()
 
   return tokenized_sentences
