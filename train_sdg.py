@@ -5,7 +5,7 @@ import torch
 import sklearn
 import numpy as np
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
-from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, Trainer, TrainingArguments, RobertaConfig, RobertaTokenizer, RobertaForSequenceClassification, BertTokenizer
+from transformers import AutoTokenizer, Trainer, TrainingArguments, EarlyStoppingCallback
 from load_data_sdg import *
 import random
 from sklearn.model_selection import StratifiedKFold
@@ -86,14 +86,14 @@ def train():
    
    print(device)
    
-   default_dataset = load_data("../dataset/train/train.csv")
+   default_dataset = load_data("../dataset/train/train_revised.csv")
    default_label = label_to_num(default_dataset['label'].values)
   
    kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=44)
    
    for fold, (train_idx, val_idx) in enumerate(kfold.split(default_dataset, default_label)):
         print(f"{fold} FOLD")
-        run=wandb.init(project='klue', entity='quarter100', name='sdg'+'20210930'+'fold'+str(fold))            
+        run=wandb.init(project='klue', entity='quarter100', name='sdg'+'20210931kfold'+'fold'+str(fold))            
         train_dataset = default_dataset.iloc[train_idx]
         valid_dataset = default_dataset.iloc[val_idx]
         
@@ -118,39 +118,41 @@ def train():
         model.model.resize_token_embeddings(tokenizer.vocab_size + 16)
         
         training_args = TrainingArguments(
-        output_dir='./results',          # output directory
-        save_total_limit=2,              # number of total save model.
-        save_steps=500,                 # model saving step.
+        output_dir='./results/'+'fold'+str(fold),          # output directory
+        save_total_limit=1,              # number of total save model.
+        save_steps=250,                 # model saving step.
         num_train_epochs=5,              # total number of training epochs
         learning_rate=3e-5,               # learning_rate
-        per_device_train_batch_size=16,  # batch size per device during training
+        per_device_train_batch_size=32,  # batch size per device during training
         per_device_eval_batch_size=32,   # batch size for evaluation
-        warmup_steps=812,                # number of warmup steps for learning rate scheduler
+        warmup_steps=406,                # number of warmup steps for learning rate scheduler
         weight_decay=0.01,               # strength of weight decay
         logging_dir='./logs',            # directory for storing logs
-        logging_steps=100,              # log saving step.
+        logging_steps=50,              # log saving step.
         evaluation_strategy='steps', # evaluation strategy to adopt during training
                                     # `no`: No evaluation during training.
                                     # `steps`: Evaluate every `eval_steps`.
                                     # `epoch`: Evaluate every end of epoch.
-        eval_steps = 500,            # evaluation step.
+        eval_steps = 250,            # evaluation step.
         load_best_model_at_end = True,
         seed = 44,
         metric_for_best_model='micro f1 score',
         label_smoothing_factor = 0.1,
-        report_to="wandb"
+        report_to="wandb",
+        dataloader_num_workers=2
         )
         trainer = Trainer(
         model=model,                         # the instantiated 🤗 Transformers model to be trained
         args=training_args,                  # training arguments, defined above
         train_dataset=RE_train_dataset,         # training dataset
         eval_dataset=RE_valid_dataset,             # evaluation dataset
-        compute_metrics=compute_metrics         # define metrics function
+        compute_metrics=compute_metrics,         # define metrics function
+        callbacks = [EarlyStoppingCallback(early_stopping_patience=5)]
         )
         
         # train model
         trainer.train()
-        model.model.save_pretrained('./best_model')
+        torch.save(model.state_dict(), './best_model/'+'fold'+str(fold))
         run.finish()
         
         
