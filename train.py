@@ -17,6 +17,7 @@ from load_data import *
 from focal_loss import *
 from MyTrainer import *
 from datetime import date
+import uuid
 
 def seed_everything(seed):
     random.seed(seed)
@@ -175,7 +176,7 @@ def train():
             fp16_backend='amp',
             metric_for_best_model='micro f1 score',
             report_to='wandb',
-            run_name = args.model,
+            run_name = args.model + str(hex(uuid.getnode())),
             label_smoothing_factor=0.1
         )
     
