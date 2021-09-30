@@ -15,10 +15,14 @@ class MyTrainer(Trainer):
 
         if self.loss_name == 'CrossEntropy':
             custom_loss = torch.nn.CrossEntropyLoss().to(device)
+            # logits = outputs.get('logits') : same as outputs[0]
             loss = custom_loss(outputs[0], labels)
+            #print(labels,self.model.config.num_labels)
+
         elif self.loss_name == 'FocalLoss' :
             custom_loss = FocalLoss(gamma=0.5).to(device)
             loss = custom_loss(outputs[0], labels)
+
         elif self.loss_name == 'CrossEntropy_w':
             custom_loss = torch.nn.CrossEntropyLoss(weight = torch.tensor([ 0.1135,  0.2526,  2.5770,  2.8482,  0.5147,  0.8199,  0.3029,  0.9057,
          7.7866, 22.5486,  3.5603,  5.6079,  1.0813,  5.6965,  2.0268,  0.8771,

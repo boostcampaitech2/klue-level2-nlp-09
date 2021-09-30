@@ -110,7 +110,7 @@ def train():
   
   # set wandb 
   wandb_config = {'test_name': conf.values['test_name'], 'random_seed': conf.values['random_seed'], 'kfold': conf.values['train_settings']['kfold']}
-  run = wandb.init(project = conf.values['wandb_options']['project'], entity = conf.values['wandb_options']['entity'], config = wandb_config)
+  run = wandb.init(project = conf.values['wandb_options']['project'], entity = conf.values['wandb_options']['entity'], config = wandb_config, name = conf.values['wandb_options']['name'])
  
 
   # load model and tokenizer
@@ -170,7 +170,7 @@ def train():
       eval_steps = conf.values['huggingface_options']['eval_steps'],
       load_best_model_at_end = conf.values['huggingface_options']['load_best_model_at_end'],
       metric_for_best_model = conf.values['huggingface_options']['metric_for_best_model'],
-      #report_to = "wandb"
+      group_by_length = conf.values['huggingface_options']['group_by_length'] # smart padding
     )
 
     trainer = MyTrainer(

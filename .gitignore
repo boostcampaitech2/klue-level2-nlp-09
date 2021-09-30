@@ -9,4 +9,6 @@
 *results
 *.pkl**
 *config.py
+*nohup.out
+*.sh**
 
