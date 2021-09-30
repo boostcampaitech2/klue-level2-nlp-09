@@ -1,10 +1,10 @@
 from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, Trainer, TrainingArguments
 from torch.utils.data import DataLoader
-from load_data import *
+from load_data_sdg import *
 import pandas as pd
 import torch
 import torch.nn.functional as F
-
+from model import REmodel
 import pickle as pickle
 import numpy as np
 import argparse
@@ -21,12 +21,17 @@ def inference(model, tokenized_sent, device):
   output_prob = []
   for i, data in enumerate(tqdm(dataloader)):
     with torch.no_grad():
+      input_ids=data['input_ids'].to(device)
+      attention_mask=data['attention_mask'].to(device)
+      start_obj_idx = data['start_obj_idx']
+      start_sub_idx = data['start_sub_idx']
       outputs = model(
-          input_ids=data['input_ids'].to(device),
-          attention_mask=data['attention_mask'].to(device),
-          token_type_ids=data['token_type_ids'].to(device)
+          input_ids,
+          attention_mask,
+          start_obj_idx,
+          start_sub_idx
           )
-    logits = outputs[0]
+    logits = outputs["logits"]
     prob = F.softmax(logits, dim=-1).detach().cpu().numpy()
     logits = logits.detach().cpu().numpy()
     result = np.argmax(logits, axis=-1)
@@ -59,18 +64,21 @@ def load_test_dataset(dataset_dir, tokenizer):
   tokenized_test = tokenized_dataset(test_dataset, tokenizer)
   return test_dataset['id'], tokenized_test, test_label
 
-def main(args):
+def main():
   """
     주어진 dataset csv 파일과 같은 형태일 경우 inference 가능한 코드입니다.
   """
   device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
   # load tokenizer
-  Tokenizer_NAME = "klue/bert-base"
+  Tokenizer_NAME = "klue/roberta-large"
   tokenizer = AutoTokenizer.from_pretrained(Tokenizer_NAME)
 
   ## load my model
-  MODEL_NAME = args.model_dir # model dir.
-  model = AutoModelForSequenceClassification.from_pretrained(args.model_dir)
+  MODEL_NAME = "klue/roberta-large" 
+  model = REmodel(MODEL_NAME, device)
+  model.model.resize_token_embeddings(tokenizer.vocab_size + 16)
+  best_state_dict = torch.load('/opt/ml/code/best_model/pytorch_model.bin')
+  model.load_state_dict(best_state_dict)
   model.parameters
   model.to(device)
 
@@ -92,11 +100,6 @@ def main(args):
   #### 필수!! ##############################################
   print('---- Finish! ----')
 if __name__ == '__main__':
-  parser = argparse.ArgumentParser()
-  
-  # model dir
-  parser.add_argument('--model_dir', type=str, default="./best_model")
-  args = parser.parse_args()
-  print(args)
-  main(args)
+  torch.cuda.empty_cache()
+  main()
   
