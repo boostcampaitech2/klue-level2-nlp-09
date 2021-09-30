@@ -1,9 +1,26 @@
 {
-    "test_name": "실험 아이디어를 간단하게 적어주세요",
-    "model_name": "klue/bert-base",
+    "test_name": "roberta-large_5fold_weight",
+    "model_name": "xlm-roberta-large",
+    "toknizer_name" : "",
     "random_seed": 42,
+
+    "wandb_options":{
+        "entity":"minji913",
+        "project":"huggingface"
+    },
+
     "data":{
-        "train_data": "../dataset/train/train.csv"
+        "train_data_dir": "../dataset/train/train.csv",
+        "test_data_dir": "../dataset/test/test_data.csv"
+    },
+
+    "train_settings" : {
+        "kfold" : 5,
+        "loss" : "CrossEntropy_w"
+    },
+
+    "inference_settings" : {
+        "tokenizer_name" : "xlm-roberta-large"
     },
 
     "toknizer_options": {
@@ -15,19 +32,22 @@
     },
 
     "huggingface_options":{
+        "help" : "새로운 것을 추가하려면 train.py에서도 추가하셔야합니다",
         "output_dir" : "./results",       
-        "save_total_limit" : 5,             
-        "save_steps" : 500,  
-        "num_train_epochs" : 20,       
-        "learning_rate" : 5e-5,         
+        "save_total_limit" : 2,               
+        "num_train_epochs" : 6,       
+        "learning_rate" : 1e-5,         
         "per_device_train_batch_size" : 16, 
         "per_device_eval_batch_size" : 16, 
-        "warmup_steps" : 500,           
+        "warmup_steps" : 200,           
         "weight_decay" : 0.01,          
         "logging_dir" : "./logs",    
         "logging_steps" : 100,        
         "evaluation_strategy": "steps",
-        "eval_steps" : 500,
-        "load_best_model_at_end" : true  
+        "save_steps" : 406,
+        "eval_steps" : 406,
+        "load_best_model_at_end" : true,
+        "metric_for_best_model" : "micro f1 score"
+
     }
 }   
