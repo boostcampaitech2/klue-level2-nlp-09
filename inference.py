@@ -9,6 +9,8 @@ import pickle as pickle
 import numpy as np
 import argparse
 from tqdm import tqdm
+from config_parser import JsonConfigFileManager
+conf = JsonConfigFileManager('./config.json')
 
 def inference(model, tokenized_sent, device):
   """
@@ -24,7 +26,7 @@ def inference(model, tokenized_sent, device):
       outputs = model(
           input_ids=data['input_ids'].to(device),
           attention_mask=data['attention_mask'].to(device),
-          token_type_ids=data['token_type_ids'].to(device)
+          # token_type_ids=data['token_type_ids'].to(device)  # roberta x
           )
     logits = outputs[0]
     prob = F.softmax(logits, dim=-1).detach().cpu().numpy()
@@ -65,7 +67,7 @@ def main(args):
   """
   device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
   # load tokenizer
-  Tokenizer_NAME = "klue/bert-base"
+  Tokenizer_NAME = conf.values['inference_settings']['tokenizer_name']
   tokenizer = AutoTokenizer.from_pretrained(Tokenizer_NAME)
 
   ## load my model
@@ -75,7 +77,7 @@ def main(args):
   model.to(device)
 
   ## load test datset
-  test_dataset_dir = "../dataset/test/test_data.csv"
+  test_dataset_dir = conf.values['data']['test_data_dir']
   test_id, test_dataset, test_label = load_test_dataset(test_dataset_dir, tokenizer)
   Re_test_dataset = RE_Dataset(test_dataset ,test_label)
 
@@ -95,7 +97,7 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   
   # model dir
-  parser.add_argument('--model_dir', type=str, default="./best_model")
+  parser.add_argument('--model_dir', type=str, default="./best_model_0")
   args = parser.parse_args()
   print(args)
   main(args)
