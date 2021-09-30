@@ -65,7 +65,7 @@ def main(args):
     """
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # load tokenizer
-    Tokenizer_NAME = "xlm-roberta-large"
+    Tokenizer_NAME = args.model
     tokenizer = AutoTokenizer.from_pretrained(Tokenizer_NAME)
 
     ## load my model
@@ -95,6 +95,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
 
     # model dir
+    parser.add_argument('--model', type=str, default='xlm-roberta-large', help='model type (default: xlm-roberta-large)')
     parser.add_argument('--model_dir', type=str, default="./best_model") 
     args = parser.parse_args()
     print(args)
