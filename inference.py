@@ -65,17 +65,17 @@ def main(args):
     """
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     # load tokenizer
-    Tokenizer_NAME = "xlm-roberta-large"
+    Tokenizer_NAME = "klue/roberta-base"
     tokenizer = AutoTokenizer.from_pretrained(Tokenizer_NAME)
 
     ## load my model
     MODEL_NAME = args.model_dir # model dir.
     model = AutoModelForSequenceClassification.from_pretrained(args.model_dir)
-    model.parameters
+    model.resize_token_embeddings(tokenizer.vocab_size + 4)
     model.to(device)
 
     ## load test datset
-    test_dataset_dir = "../dataset/test/test_data.csv"
+    test_dataset_dir = "/home/ubuntu/dataset/test/test_data.csv"
     test_id, test_dataset, test_label = load_test_dataset(test_dataset_dir, tokenizer)
     Re_test_dataset = RE_Dataset(test_dataset ,test_label)
 

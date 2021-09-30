@@ -135,8 +135,8 @@ def train():
         valid_dataset = default_dataset.iloc[val_idx]
 
         # tokenizing dataset
-        tokenized_train = tokenized_dataset(train_dataset, tokenizer, args.model)
-        tokenized_valid = tokenized_dataset(valid_dataset, tokenizer, args.model)
+        tokenized_train = tokenized_dataset(train_dataset, tokenizer)
+        tokenized_valid = tokenized_dataset(valid_dataset, tokenizer)
 
         # make dataset for pytorch.
         RE_train_dataset = RE_Dataset(tokenized_train, train_label)
@@ -147,7 +147,7 @@ def train():
         model_config.num_labels = 30
 
         model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, config=model_config)
-        model.parameters
+        model.resize_token_embeddings(tokenizer.vocab_size + 4)
         model.to(device)
 
         save_dir = increment_path('./results/' + args.model)
@@ -178,7 +178,8 @@ def train():
             fp16_full_eval=args.fp16,
             fp16_backend='amp',
             metric_for_best_model='micro f1 score',
-            report_to='wandb'
+            report_to='wandb',
+            run_name = args.model
         )
 
         trainer = Trainer(
@@ -219,7 +220,7 @@ if __name__ == '__main__':
     parser.add_argument('--save_steps', type=int, default=406, help='save_steps (default: 406)')
     parser.add_argument('--logging_steps', type=int, default=100, help='logging_steps (default: 100)')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='weight_decay (default: 0.01)')
-    parser.add_argument('--fp16', default=False, action='store_true', help='using fp16 mixed precision')
+    parser.add_argument('--fp16', default=True, action='store_true', help='using fp16 mixed precision')
 
     args = parser.parse_args()
     import time
