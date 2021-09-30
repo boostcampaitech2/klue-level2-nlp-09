@@ -9,6 +9,7 @@ from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_sc
 from sklearn.model_selection import KFold, StratifiedKFold
 from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, Trainer, TrainingArguments, RobertaConfig, RobertaTokenizer, RobertaForSequenceClassification, BertTokenizer
 from load_data import *
+import wandb
 
 
 def klue_re_micro_f1(preds, labels):
@@ -75,11 +76,11 @@ def label_to_num(label):
 def train():
     # load model and tokenizer
     # MODEL_NAME = "bert-base-uncased"
-    MODEL_NAME = "xlm-roberta-large"
+    MODEL_NAME = args.model
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
     # load dataset
-    all_dataset = load_data("../dataset/train/train.csv")
+    all_dataset = load_data("opt/ml/dataset/train/train.csv")
     all_label = label_to_num(all_dataset['label'].values)
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -88,7 +89,8 @@ def train():
     # kfold
     kfold = []
 
-    splitter = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    splitter = StratifiedKFold(
+        n_splits=args.fold, shuffle=True, random_state=args.seed)
 
     for fold, (train_idx, val_idx) in enumerate(splitter.split(all_dataset, all_label), start=1):
         print(f'{fold}fold 학습중...')
@@ -117,7 +119,7 @@ def train():
         model.parameters
         model.to(device)
 
-        save_dir = './results/' + MODEL_NAME + '/' + str(fold)
+        save_dir = f'opt/ml/code/results/{MODEL_NAME}/{str(fold)}'
         # 사용한 option 외에도 다양한 option들이 있습니다.
         # https://huggingface.co/transformers/main_classes/trainer.html#trainingarguments 참고해주세요.
         training_args = TrainingArguments(
@@ -140,7 +142,8 @@ def train():
             # `steps`: Evaluate every `eval_steps`.
             # `epoch`: Evaluate every end of epoch.
             eval_steps=args.eval_steps,            # evaluation step.
-            load_best_model_at_end=True
+            load_best_model_at_end=True,
+            report_to='wandb'
         )
         trainer = Trainer(
             # the instantiated 🤗 Transformers model to be trained
@@ -150,7 +153,8 @@ def train():
             eval_dataset=RE_val_dataset,             # evaluation dataset
             compute_metrics=compute_metrics         # define metrics function
         )
-
+        # wandb
+        # wandb.init(project='klue', entity='quarter100', name=f'{MODEL_NAME}_{fold}')
         trainer.train()
         model.save_pretrained('./best_model/'+str(fold))
 
