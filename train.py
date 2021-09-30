@@ -14,6 +14,8 @@ from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_sc
 from sklearn.model_selection import KFold, StratifiedKFold
 from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, Trainer, TrainingArguments, RobertaConfig, RobertaTokenizer, RobertaForSequenceClassification, BertTokenizer
 from load_data import *
+from focal_loss import *
+from MyTrainer import *
 
 def seed_everything(seed):
     random.seed(seed)
@@ -144,7 +146,7 @@ def train():
         # https://huggingface.co/transformers/main_classes/trainer.html#trainingarguments 참고해주세요.
         training_args = TrainingArguments(
             output_dir=save_dir,          # output directory
-            save_total_limit=100,              # number of total save model.
+            save_total_limit=1,              # number of total save model.
             save_steps=args.save_steps,                 # model saving step.
             num_train_epochs=args.epochs,              # total number of training epochs
             learning_rate=args.lr,               # learning_rate
@@ -165,7 +167,8 @@ def train():
             report_to = "wandb"
         )
     
-        trainer = Trainer(
+        trainer = MyTrainer(
+            loss_name=args.loss,
             model=model,                         # the instantiated 🤗 Transformers model to be trained
             args=training_args,                  # training arguments, defined above
             train_dataset=RE_train_dataset,         # training dataset
@@ -175,9 +178,9 @@ def train():
 
         # train model
         #wandb.init(project='P2', group=CFG.MODEL_NAME, name=save_dir.split('/')[-1], tags=CFG.tag, config=CFG)
-        run = wandb.init(project='klue', entity='quarter100')
+        run = wandb.init(project='klue', entity='quarter100', name=save_dir.split('/')[-1]+'fold'+str(fold))
         trainer.train()
-        model.save_pretrained('./best_model'+fold)
+        model.save_pretrained('./best_model'+str(fold))
         run.finish()
     
 def main():
@@ -191,6 +194,7 @@ if __name__ == '__main__':
     parser.add_argument('--fold', type=int, default=5, help='fold (default: 5)')
     parser.add_argument('--model', type=str, default='xlm-roberta-large', help='model type (default: xlm-roberta-large)')
     parser.add_argument('--epochs', type=int, default=5, help='number of epochs to train (default: 5)')
+    parser.add_argument('--loss', type=str, default='FocalLoss', help='train loss (default: FocalLoss)')
     parser.add_argument('--lr', type=float, default=1e-5, help='learning rate (default: 5e-5)')
     parser.add_argument('--batch', type=int, default=16, help='input batch size for training (default: 16)')
     parser.add_argument('--batch_valid', type=int, default=16, help='input batch size for validing (default: 16)')
