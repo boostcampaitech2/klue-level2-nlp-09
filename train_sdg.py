@@ -14,6 +14,8 @@ from model import REmodel
 import wandb
 from focal_loss import FocalLoss
 from sklearn.utils.class_weight import compute_class_weight
+from collections import Counter
+
 
 def seed_everything(seed):
     random.seed(seed)
@@ -79,10 +81,13 @@ def label_to_num(label):
   
   return num_label
 
+
+
 class MyTrainer(Trainer):
-    def __init__(self, loss_name, *args, **kwargs):
+    def __init__(self, loss_name, class_weight, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.loss_name= loss_name
+        self.class_weight = class_weight
 
     def compute_loss(self, model, inputs, return_outputs=False):
         
@@ -92,10 +97,8 @@ class MyTrainer(Trainer):
         
         if self.args.past_index >= 0:
             self._past = outputs[self.args.past_index]
-        
         if self.loss_name == 'CrossEntropy':
-            class_weight = compute_class_weight(class_weight = "balanced", classes=np.unique(labels), y=labels)
-            custom_loss = torch.nn.CrossEntropyLoss(weight = class_weight).to(device)
+            custom_loss = torch.nn.CrossEntropyLoss(weight = self.class_weight).to(device)
             loss = custom_loss(outputs['logits'], labels)
         elif self.loss_name == 'FocalLoss' :
             custom_loss = FocalLoss(gamma=0.5).to(device)
@@ -121,12 +124,17 @@ def train():
    
    default_dataset = load_data("../dataset/train/train_revised.csv")
    default_label = label_to_num(default_dataset['label'].values)
+   class_weight = Counter(default_label)
+   class_weight = list(class_weight.values())
+   for i in range(len(class_weight)):
+     class_weight[i] = sum(class_weight)/(len(class_weight) * class_weight[i])
+   class_weight = torch.tensor(class_weight).to(device=device, dtype=torch.half)
   
    kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
    
    for fold, (train_idx, val_idx) in enumerate(kfold.split(default_dataset, default_label)):
         print(f"{fold} FOLD")
-        run=wandb.init(project='klue', entity='quarter100', name='sdg'+'20210931kfold'+'fold'+str(fold))            
+        run=wandb.init(project='klue', entity='quarter100', name='sdg'+'20211001kfold'+'fold'+str(fold))            
         train_dataset = default_dataset.iloc[train_idx]
         valid_dataset = default_dataset.iloc[val_idx]
         
@@ -167,8 +175,8 @@ def train():
         eval_steps = 250,            # evaluation step.
         load_best_model_at_end = True,
         seed = 42,
-        fp16=True,
-        group_by_length=True,
+        #fp16=True,
+        #group_by_length=True,
         metric_for_best_model='micro f1 score',
         label_smoothing_factor = 0.1,
         report_to="wandb",
@@ -181,7 +189,8 @@ def train():
         eval_dataset=RE_valid_dataset,             # evaluation dataset
         compute_metrics=compute_metrics,         # define metrics function
         callbacks = [EarlyStoppingCallback(early_stopping_patience=3)],
-        loss_name = 'LabelSmoothLoss'
+        loss_name = 'CrossEntropy',
+        class_weight = class_weight
         )
         
         # train model
