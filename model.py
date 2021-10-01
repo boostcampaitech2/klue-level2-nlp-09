@@ -3,6 +3,7 @@ import os
 import torch
 import torch.nn as nn
 from transformers.utils.dummy_pt_objects import AutoModelWithLMHead
+from torch.cuda.amp import autocast
 
 class REmodel(nn.Module):
     def __init__(self, model_name, device):
@@ -17,6 +18,8 @@ class REmodel(nn.Module):
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(p=0.1)
         self.lin2 = nn.Linear(in_features = self.hidden_size, out_features = self.num_labels)
+    
+    @autocast()    
     def forward(self, input_ids, attention_mask, start_obj_idx, start_sub_idx):
         outputs = self.model(input_ids = input_ids.to(device=self.device), attention_mask=attention_mask.to(device=self.device))[0]
         batch_size= len(start_obj_idx)

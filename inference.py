@@ -1,4 +1,4 @@
-from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, Trainer, TrainingArguments
+from transformers import AutoTokenizer
 from torch.utils.data import DataLoader
 from load_data_sdg import *
 import pandas as pd
@@ -32,8 +32,9 @@ def inference(model, tokenized_sent, device):
           start_sub_idx
           )
     logits = outputs["logits"]
-    prob = F.softmax(logits, dim=-1).detach().cpu().numpy()
+    # prob = F.softmax(logits, dim=-1).detach().cpu().numpy()
     logits = logits.detach().cpu().numpy()
+    prob = logits
     result = np.argmax(logits, axis=-1)
 
     output_pred.append(result)
@@ -73,6 +74,7 @@ def main():
   Tokenizer_NAME = "klue/roberta-large"
   tokenizer = AutoTokenizer.from_pretrained(Tokenizer_NAME)
   for i in range(5):
+    torch.cuda.empty_cache()
     ## load my model
     MODEL_NAME = "klue/roberta-large" 
     model = REmodel(MODEL_NAME, device)
@@ -95,7 +97,7 @@ def main():
     # 아래 directory와 columns의 형태는 지켜주시기 바랍니다.
     output = pd.DataFrame({'id':test_id,'pred_label':pred_answer,'probs':output_prob,})
 
-    output.to_csv('./prediction/submission'+'str(i)'+'.csv', index=False) # 최종적으로 완성된 예측한 라벨 csv 파일 형태로 저장.
+    output.to_csv('./prediction/submission'+str(i)+'.csv', index=False) # 최종적으로 완성된 예측한 라벨 csv 파일 형태로 저장.
     #### 필수!! ##############################################
     print('---- Finish! ----')
 if __name__ == '__main__':

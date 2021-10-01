@@ -11,8 +11,9 @@ import random
 from sklearn.model_selection import StratifiedKFold
 import argparse
 from model import REmodel
-from torch.utils.data import DataLoader
 import wandb
+from focal_loss import FocalLoss
+from sklearn.utils.class_weight import compute_class_weight
 
 def seed_everything(seed):
     random.seed(seed)
@@ -78,8 +79,40 @@ def label_to_num(label):
   
   return num_label
 
+class MyTrainer(Trainer):
+    def __init__(self, loss_name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.loss_name= loss_name
+
+    def compute_loss(self, model, inputs, return_outputs=False):
+        
+        labels = inputs.pop("labels")
+        outputs = model(**inputs)
+        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        
+        if self.args.past_index >= 0:
+            self._past = outputs[self.args.past_index]
+        
+        if self.loss_name == 'CrossEntropy':
+            class_weight = compute_class_weight(class_weight = "balanced", classes=np.unique(labels), y=labels)
+            custom_loss = torch.nn.CrossEntropyLoss(weight = class_weight).to(device)
+            loss = custom_loss(outputs['logits'], labels)
+        elif self.loss_name == 'FocalLoss' :
+            custom_loss = FocalLoss(gamma=0.5).to(device)
+            loss = custom_loss(outputs['logits'], labels)
+        elif self.loss_name == 'LabelSmoothLoss' and self.label_smoother is not None:
+            loss = self.label_smoother(outputs, labels)
+            loss = loss.to(device)
+        else:
+            print("invalid loss function argument")
+            loss = outputs["loss"] if isinstance(outputs, dict) else outputs['logits']
+        
+        return (loss, outputs) if return_outputs else loss
+
+  
+  
 def train():
-   seed_everything(44)
+   seed_everything(42)
    MODEL_NAME = "klue/roberta-large"
    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -89,7 +122,7 @@ def train():
    default_dataset = load_data("../dataset/train/train_revised.csv")
    default_label = label_to_num(default_dataset['label'].values)
   
-   kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=44)
+   kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
    
    for fold, (train_idx, val_idx) in enumerate(kfold.split(default_dataset, default_label)):
         print(f"{fold} FOLD")
@@ -112,8 +145,6 @@ def train():
         # setting model hyperparameter
         
         model =  REmodel(MODEL_NAME, device)
-        print(model.model_config)
-        model.model.parameters
         model.to(device)
         model.model.resize_token_embeddings(tokenizer.vocab_size + 16)
         
@@ -135,24 +166,30 @@ def train():
                                     # `epoch`: Evaluate every end of epoch.
         eval_steps = 250,            # evaluation step.
         load_best_model_at_end = True,
-        seed = 44,
+        seed = 42,
+        fp16=True,
+        group_by_length=True,
         metric_for_best_model='micro f1 score',
         label_smoothing_factor = 0.1,
         report_to="wandb",
         dataloader_num_workers=2
         )
-        trainer = Trainer(
+        trainer = MyTrainer(
         model=model,                         # the instantiated 🤗 Transformers model to be trained
         args=training_args,                  # training arguments, defined above
         train_dataset=RE_train_dataset,         # training dataset
         eval_dataset=RE_valid_dataset,             # evaluation dataset
         compute_metrics=compute_metrics,         # define metrics function
-        callbacks = [EarlyStoppingCallback(early_stopping_patience=5)]
+        callbacks = [EarlyStoppingCallback(early_stopping_patience=3)],
+        loss_name = 'LabelSmoothLoss'
         )
         
         # train model
         trainer.train()
-        torch.save(model.state_dict(), './best_model/'+'fold'+str(fold))
+        model_object_file_path =  './best_model/'+'fold'+str(fold)+'/pytorch_model.bin'
+        if not os.path.exists(model_object_file_path):
+          os.makedirs(model_object_file_path)
+        torch.save(model.state_dict(), model_object_file_path)
         run.finish()
         
         
@@ -164,6 +201,7 @@ def main():
 
 if __name__ == '__main__':
   main()
+  
     
     
     
