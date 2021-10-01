@@ -10,6 +10,17 @@ from sklearn.model_selection import KFold, StratifiedKFold
 from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, Trainer, TrainingArguments, RobertaConfig, RobertaTokenizer, RobertaForSequenceClassification, BertTokenizer
 from load_data import *
 import wandb
+import random
+
+
+def seed_everything(seed):
+    random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = True
 
 
 def klue_re_micro_f1(preds, labels):
@@ -65,7 +76,7 @@ def compute_metrics(pred):
 
 def label_to_num(label):
     num_label = []
-    with open('dict_label_to_num.pkl', 'rb') as f:
+    with open('/opt/ml/code/dict_label_to_num.pkl', 'rb') as f:
         dict_label_to_num = pickle.load(f)
     for v in label:
         num_label.append(dict_label_to_num[v])
@@ -74,25 +85,26 @@ def label_to_num(label):
 
 
 def train():
+    seed_everything(args.seed)
     # load model and tokenizer
     # MODEL_NAME = "bert-base-uncased"
     MODEL_NAME = args.model
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
     # load dataset
-    all_dataset = load_data("opt/ml/dataset/train/train.csv")
+    all_dataset = load_data("/opt/ml/dataset/train/train.csv")
     all_label = label_to_num(all_dataset['label'].values)
 
     device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
     print(device)
 
-    # kfold
-    kfold = []
-
     splitter = StratifiedKFold(
         n_splits=args.fold, shuffle=True, random_state=args.seed)
 
     for fold, (train_idx, val_idx) in enumerate(splitter.split(all_dataset, all_label), start=1):
+        # wandb
+        run = wandb.init(project='klue', entity='quarter100',
+                         name=f'{MODEL_NAME}_{fold}_restore')
         print(f'{fold}fold 학습중...')
 
         train_dataset = all_dataset.iloc[train_idx]
@@ -119,14 +131,14 @@ def train():
         model.parameters
         model.to(device)
 
-        save_dir = f'opt/ml/code/results/{MODEL_NAME}/{str(fold)}'
+        save_dir = f'/opt/ml/code/results/{MODEL_NAME}/{str(fold)}'
         # 사용한 option 외에도 다양한 option들이 있습니다.
         # https://huggingface.co/transformers/main_classes/trainer.html#trainingarguments 참고해주세요.
         training_args = TrainingArguments(
-            output_dir=save_dir,        # output directory
+            output_dir=save_dir,            # output directory
             save_total_limit=1,              # number of total save model.
-            save_steps=args.save_steps,                 # model saving step.
-            num_train_epochs=args.epochs,              # total number of training epochs
+            save_steps=args.save_steps,          # model saving step.
+            num_train_epochs=args.epochs,        # total number of training epochs
             learning_rate=args.lr,               # learning_rate
             # batch size per device during training
             per_device_train_batch_size=args.batch,
@@ -134,13 +146,13 @@ def train():
             # number of warmup steps for learning rate scheduler
             warmup_steps=args.warmup,
             weight_decay=args.weight_decay,               # strength of weight decay
-            logging_dir='./logs',            # directory for storing logs
+            logging_dir='./logs',                          # directory for storing logs
             logging_steps=args.logging_steps,              # log saving step.
             metric_for_best_model=args.metric_for_best_model,
-            evaluation_strategy='steps',  # evaluation strategy to adopt during training
-            # `no`: No evaluation during training.
-            # `steps`: Evaluate every `eval_steps`.
-            # `epoch`: Evaluate every end of epoch.
+            evaluation_strategy='steps',    # evaluation strategy to adopt during training
+                                            # `no`: No evaluation during training.
+                                            # `steps`: Evaluate every `eval_steps`.
+                                            # `epoch`: Evaluate every end of epoch.
             eval_steps=args.eval_steps,            # evaluation step.
             load_best_model_at_end=True,
             report_to='wandb'
@@ -153,10 +165,10 @@ def train():
             eval_dataset=RE_val_dataset,             # evaluation dataset
             compute_metrics=compute_metrics         # define metrics function
         )
-        # wandb
-        # wandb.init(project='klue', entity='quarter100', name=f'{MODEL_NAME}_{fold}')
+
         trainer.train()
-        model.save_pretrained('./best_model/'+str(fold))
+        model.save_pretrained(f'/opt/ml/code/best_model/re_{str(fold)}')
+        run.finish()
 
 
 def main():
