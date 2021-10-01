@@ -29,7 +29,14 @@ class FocalLoss(nn.Module):
                 self.alpha = self.alpha.type_as(input.data)
             at = self.alpha.gather(0, target.data.view(-1))
             logpt = logpt * at
-
-        loss = -1 * (1 - pt)**self.gamma * logpt
+            
+        if self.alpha is not None:
+            if self.alpha.type() != input.data.type():
+                self.alpha = self.alpha.type_as(input.data)
+            select = (target!=0).type(torch.LongTensor).cuda()
+            at = self.alpha.gather(0,select.data.view(-1))
+            #at = self.alpha.gather(0, target.data.view(-1))
+            logpt = logpt * at
+        loss = -1 * (1 - pt) ** self.gamma * logpt
         if self.size_average: return loss.mean()
         else: return loss.sum()

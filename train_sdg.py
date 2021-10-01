@@ -65,11 +65,13 @@ def compute_metrics(pred):
   f1 = klue_re_micro_f1(preds, labels)
   auprc = klue_re_auprc(probs, labels)
   acc = accuracy_score(labels, preds) # 리더보드 평가에는 포함되지 않습니다.
+  f1ver2 = f1_score(labels, preds, average="micro") * 100
 
   return {
       'micro f1 score': f1,
       'auprc' : auprc,
       'accuracy': acc,
+      'normal f1' : f1ver2
   }
 
 def label_to_num(label):
@@ -100,16 +102,15 @@ class MyTrainer(Trainer):
         if self.loss_name == 'CrossEntropy':
             custom_loss = torch.nn.CrossEntropyLoss(weight = self.class_weight).to(device)
             loss = custom_loss(outputs['logits'], labels)
-        elif self.loss_name == 'FocalLoss' :
+        elif self.loss_name == "FocalLoss":
             custom_loss = FocalLoss(gamma=0.5).to(device)
-            loss = custom_loss(outputs['logits'], labels)
+            logits = outputs.get('logits')
+            loss = custom_loss(logits, labels)
         elif self.loss_name == 'LabelSmoothLoss' and self.label_smoother is not None:
             loss = self.label_smoother(outputs, labels)
             loss = loss.to(device)
         else:
             print("invalid loss function argument")
-            loss = outputs["loss"] if isinstance(outputs, dict) else outputs['logits']
-        
         return (loss, outputs) if return_outputs else loss
 
   
@@ -134,7 +135,7 @@ def train():
    
    for fold, (train_idx, val_idx) in enumerate(kfold.split(default_dataset, default_label)):
         print(f"{fold} FOLD")
-        run=wandb.init(project='klue', entity='quarter100', name='sdg'+'20211001kfold'+'fold'+str(fold))            
+        run=wandb.init(project='klue', entity='quarter100', name='sdg'+'REMODEL+focal '+'fold'+str(fold))            
         train_dataset = default_dataset.iloc[train_idx]
         valid_dataset = default_dataset.iloc[val_idx]
         
@@ -164,7 +165,7 @@ def train():
         learning_rate=3e-5,               # learning_rate
         per_device_train_batch_size=32,  # batch size per device during training
         per_device_eval_batch_size=32,   # batch size for evaluation
-        warmup_steps=406,                # number of warmup steps for learning rate scheduler
+        warmup_ratio=0.1,                # number of warmup steps for learning rate scheduler
         weight_decay=0.01,               # strength of weight decay
         logging_dir='./logs',            # directory for storing logs
         logging_steps=50,              # log saving step.
@@ -175,7 +176,6 @@ def train():
         eval_steps = 250,            # evaluation step.
         load_best_model_at_end = True,
         seed = 42,
-        #fp16=True,
         #group_by_length=True,
         metric_for_best_model='micro f1 score',
         label_smoothing_factor = 0.1,
@@ -189,7 +189,7 @@ def train():
         eval_dataset=RE_valid_dataset,             # evaluation dataset
         compute_metrics=compute_metrics,         # define metrics function
         callbacks = [EarlyStoppingCallback(early_stopping_patience=3)],
-        loss_name = 'CrossEntropy',
+        loss_name = 'FocalLoss',
         class_weight = class_weight
         )
         
