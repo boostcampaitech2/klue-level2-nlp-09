@@ -68,6 +68,27 @@ def label_to_num(label):
   
   return num_label
 
+def random_swap(dataset):
+  new_sen = []
+  tmpsen = dataset['sentence']
+  for i in tmpsen:
+      print(i)
+      words = i.split()
+      random_idx_1 = random.randint(0, len(words) - 1)
+      random_idx_2 = random_idx_1
+      counter = 0
+      while random_idx_2 == random_idx_1:
+        random_idx_2 = random.randint(0, len(words) - 1)
+        counter += 1
+        if counter > 3:
+          break;
+
+      words[random_idx_1], words[random_idx_2] = words[random_idx_2], words[random_idx_1]
+      new_sen.append(" ".join(words))
+       
+  out_sentence = pd.DataFrame({'id':dataset['id'], 'sentence': new_sen,'subject_entity':dataset['subject_entity'],'object_entity':dataset['object_entity'],'label':dataset['label'],})
+  return out_sentence
+
 def seed_everything(seed):
   torch.manual_seed(seed)
   torch.cuda.manual_seed(seed)
@@ -81,16 +102,6 @@ def train():
   # load model and tokenizer
   # MODEL_NAME = "bert-base-uncased"
   seed_everything(42)
-  wandb.init(project='klue', entity='quarter100')
-  config = wandb.config
-  config.learning_rate = 5e-5
-  config.name = "basecode"
-  config.seed = 42
-  config.epoch = 5
-  config.per_device_train_batch_size = 16
-  config.per_device_eval_batch_size = 16
-  config.warmup_steps = 500
-  config.weight_decay = 0.01
 
   device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
   print(device)
@@ -131,37 +142,41 @@ def train():
   
   # 사용한 option 외에도 다양한 option들이 있습니다.
   # https://huggingface.co/transformers/main_classes/trainer.html#trainingarguments 참고해주세요.
-  training_args = TrainingArguments(
-    output_dir='./results',          # output directory
-    save_total_limit=5,              # number of total save model.
-    save_steps=500,                 # model saving step.
-    num_train_epochs=5,              # total number of training epochs
-    learning_rate=5e-5,               # learning_rate
-    per_device_train_batch_size=16,  # batch size per device during training
-    per_device_eval_batch_size=16,   # batch size for evaluation
-    warmup_steps=500,                # number of warmup steps for learning rate scheduler
-    weight_decay=0.01,               # strength of weight decay
-    logging_dir='./logs',            # directory for storing logs
-    logging_steps=100,              # log saving step.
-    evaluation_strategy='steps', # evaluation strategy to adopt during training
-                                # `no`: No evaluation during training.
-                                # `steps`: Evaluate every `eval_steps`.
-                                # `epoch`: Evaluate every end of epoch.
-    eval_steps = 500,            # evaluation step.
-    load_best_model_at_end = True,
-    report_to="wandb"
-  )
-  trainer = Trainer(
-    model=model,                         # the instantiated 🤗 Transformers model to be trained
-    args=training_args,                  # training arguments, defined above
-    train_dataset=RE_train_dataset,         # training dataset
-    eval_dataset=RE_valid_dataset,             # evaluation dataset
-    compute_metrics=compute_metrics         # define metrics function
-  )
+    training_args = TrainingArguments(
+      output_dir='./results',          # output directory
+      save_total_limit=1,              # number of total save model.
+      save_steps=500,                 # model saving step.
+      num_train_epochs=5,              # total number of training epochs
+      learning_rate=5e-5,               # 3e-5 learning_rate
+      per_device_train_batch_size=16,  # batch size per device during training
+      per_device_eval_batch_size=16,   # batch size for evaluation
+      warmup_steps=500,                # 812 number of warmup steps for learning rate scheduler
+      weight_decay=0.01,               # strength of weight decay
+      logging_dir='./logs',            # directory for storing logs
+      logging_steps=100,              # log saving step.
+      evaluation_strategy='steps', # evaluation strategy to adopt during training
+                                  # `no`: No evaluation during training.
+                                  # `steps`: Evaluate every `eval_steps`.
+                                  # `epoch`: Evaluate every end of epoch.
+      eval_steps = 500,            # evaluation step.
+      load_best_model_at_end = True,
+      metric_for_best_model='micro f1 score',
+      report_to="wandb"
+    )
+    trainer = Trainer(
+      model=model,                         # the instantiated 🤗 Transformers model to be trained
+      args=training_args,                  # training arguments, defined above
+      train_dataset=RE_train_dataset,         # training dataset
+      eval_dataset=RE_valid_dataset,             # evaluation dataset
+      compute_metrics=compute_metrics         # define metrics function
+    )
 
-  # train model
-  trainer.train()
-  model.save_pretrained('./best_model')
+    # train model
+    run = wandb.init(project='klue', entity='quarter100')
+    trainer.train()
+    model.save_pretrained('./best_model'+str(fold))
+    run.finish()
+
 def main():
   train()
 
