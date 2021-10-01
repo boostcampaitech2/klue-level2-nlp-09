@@ -21,7 +21,7 @@ class MyTrainer(Trainer):
             loss = custom_loss(logits, labels)
 
         elif self.loss_name == "FocalLoss":
-            custom_loss = FocalLoss(gamma=0.5).to(device)
+            custom_loss = FocalLoss(gamma=0.5,alpha=0.2).to(device)
             loss = custom_loss(logits, labels)
             
 

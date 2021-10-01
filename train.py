@@ -141,7 +141,7 @@ def train():
     seed_everything(args.seed)
 
     # load model and tokenizer
-    MODEL_NAME = "klue/roberta-large"
+    MODEL_NAME = args.model
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
     # load data
@@ -164,7 +164,7 @@ def train():
         run = wandb.init(
             project="klue",
             entity="quarter100",
-            name="kfold" + "fold" + str(fold),
+            name="sentense-level-re-" + "fold" + str(fold),
         )
 
         train_dataset = default_dataset.iloc[train_idx]
@@ -246,11 +246,11 @@ def main():
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("--seed", type=int, default=42, help="random seed (default: 42)")
+    parser.add_argument("--seed", type=int, default=44, help="random seed (default: 42)")
     parser.add_argument("--fold", type=int, default=5, help="fold (default: 5)")
     parser.add_argument("--model", type=str, default="klue/roberta-large", help="model type (default: klue/roberta-large)")
     parser.add_argument("--epochs", type=int, default=5, help="number of epochs to train (default: 5)")
-    parser.add_argument("--loss", type=str, default="FocalLoss", help="train loss (default: LabelSmoothLoss)")
+    parser.add_argument("--loss", type=str, default="LabelSmoothLoss", help="train loss (default: LabelSmoothLoss)")
     parser.add_argument("--lr", type=float, default=3e-5, help="learning rate (default: 3e-5)")
     parser.add_argument("--batch", type=int, default=32, help="input batch size for training (default: 32)")
     parser.add_argument("--batch_valid", type=int, default=32, help="input batch size for validing (default: 32)")
