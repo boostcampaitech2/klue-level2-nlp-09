@@ -110,7 +110,6 @@ def train():
   
   # set wandb 
   wandb_config = {'test_name': conf.values['test_name'], 'random_seed': conf.values['random_seed'], 'kfold': conf.values['train_settings']['kfold']}
-  run = wandb.init(project = conf.values['wandb_options']['project'], entity = conf.values['wandb_options']['entity'], config = wandb_config, name = conf.values['wandb_options']['name'])
  
 
   # load model and tokenizer
@@ -125,6 +124,8 @@ def train():
   # K-fold
   kfold = StratifiedKFold(n_splits=conf.values['train_settings']['kfold'], shuffle=True, random_state=conf.values['random_seed'])
   for fold, (train_idx, val_idx) in enumerate(kfold.split(default_dataset, default_label)):
+    run = wandb.init(project = conf.values['wandb_options']['project'], entity = conf.values['wandb_options']['entity'], config = wandb_config, name = f"{conf.values['wandb_options']['name']}_{fold}")
+
     print(f"{fold} FOLD")
 
     train_label = label_to_num(default_dataset['label'].iloc[train_idx].values)

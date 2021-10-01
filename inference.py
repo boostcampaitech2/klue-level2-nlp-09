@@ -97,7 +97,7 @@ if __name__ == '__main__':
   parser = argparse.ArgumentParser()
   
   # model dir
-  parser.add_argument('--model_dir', type=str, default="./best_model_0")
+  parser.add_argument('--model_dir', type=str, default="./best_model_1")
   args = parser.parse_args()
   print(args)
   main(args)

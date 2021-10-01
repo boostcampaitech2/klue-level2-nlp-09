@@ -17,7 +17,7 @@
 
     "train_settings" : {
         "kfold" : 5,
-        "loss" : "CrossEntropy_w"
+        "loss" : "CrossEntropy"
     },
 
     "inference_settings" : {
