@@ -5,45 +5,25 @@ import torch
 import sklearn
 import numpy as np
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
-from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, Trainer, TrainingArguments, RobertaConfig, RobertaTokenizer, RobertaForSequenceClassification, BertTokenizer
-from load_data import *
-import wandb
+from transformers import AutoTokenizer, Trainer, TrainingArguments, EarlyStoppingCallback
+from load_data_sdg import *
 import random
-from pathlib import Path
-from pytorch_lightning import seed_everything
-from config_parser import JsonConfigFileManager
-from sklearn.model_selection import KFold, StratifiedKFold
-conf = JsonConfigFileManager('./config.json')
-from torch.utils.data import DataLoader
-from MyTrainer import *
+from sklearn.model_selection import StratifiedKFold
+import argparse
+from model import REmodel
+import wandb
+from focal_loss import FocalLoss
+from sklearn.utils.class_weight import compute_class_weight
 
-# https://github.com/ShannonAI/ChineseBert/blob/cbc4a52c7b803189e79367c0b1cf562ef79f21f2/utils/random_seed.py
-def set_random_seed(seed: int):
-    """set seeds for reproducibility"""
+def seed_everything(seed):
     random.seed(seed)
+    os.environ['PYTHONHASHSEED'] = str(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-    torch.cuda.manual_seed_all(seed)
-    seed_everything(seed=seed)
+    torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
-    torch.backends.cudnn.benchmark = False
-
-def increment_path(path, exist_ok=False):
-    """ Automatically increment path, i.e. runs/exp --> runs/exp0, runs/exp1 etc.
-    Args:
-        path (str or pathlib.Path): f"{model_dir}/{args.name}".
-        exist_ok (bool): whether increment path (increment if False).
-    """
-    path = Path(path)
-    if (path.exists() and exist_ok) or (not path.exists()):
-        return str(path)
-    else:
-        dirs = glob.glob(f"{path}*")
-        matches = [re.search(rf"%s(\d+)" % path.stem, d) for d in dirs]
-        i = [int(m.groups()[0]) for m in matches if m]
-        n = max(i) + 1 if i else 2
-        return f"{path}{n}"
-
+    torch.backends.cudnn.benchmark = True
+    
 def klue_re_micro_f1(preds, labels):
     """KLUE-RE micro f1 (except no_relation)"""
     label_list = ['no_relation', 'org:top_members/employees', 'org:members',
@@ -60,12 +40,11 @@ def klue_re_micro_f1(preds, labels):
     no_relation_label_idx = label_list.index("no_relation")
     label_indices = list(range(len(label_list)))
     label_indices.remove(no_relation_label_idx)
-    return sklearn.metrics.f1_score(labels, preds, average="micro", labels=label_indices) * 100.0
+    return f1_score(labels, preds, average="micro", labels=label_indices) * 100.0
 
 def klue_re_auprc(probs, labels):
     """KLUE-RE AUPRC (with no_relation)"""
     labels = np.eye(30)[labels]
-
     score = np.zeros((30,))
     for c in range(30):
         targets_c = labels.take([c], axis=1).ravel()
@@ -84,7 +63,7 @@ def compute_metrics(pred):
   f1 = klue_re_micro_f1(preds, labels)
   auprc = klue_re_auprc(probs, labels)
   acc = accuracy_score(labels, preds) # 리더보드 평가에는 포함되지 않습니다.
-  
+
   return {
       'micro f1 score': f1,
       'auprc' : auprc,
@@ -100,97 +79,124 @@ def label_to_num(label):
   
   return num_label
 
+class MyTrainer(Trainer):
+    def __init__(self, loss_name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.loss_name= loss_name
+
+    def compute_loss(self, model, inputs, return_outputs=False):
+        
+        labels = inputs.pop("labels")
+        outputs = model(**inputs)
+        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+        
+        if self.args.past_index >= 0:
+            self._past = outputs[self.args.past_index]
+        
+        if self.loss_name == 'CrossEntropy':
+            class_weight = compute_class_weight(class_weight = "balanced", classes=np.unique(labels), y=labels)
+            custom_loss = torch.nn.CrossEntropyLoss(weight = class_weight).to(device)
+            loss = custom_loss(outputs['logits'], labels)
+        elif self.loss_name == 'FocalLoss' :
+            custom_loss = FocalLoss(gamma=0.5).to(device)
+            loss = custom_loss(outputs['logits'], labels)
+        elif self.loss_name == 'LabelSmoothLoss' and self.label_smoother is not None:
+            loss = self.label_smoother(outputs, labels)
+            loss = loss.to(device)
+        else:
+            print("invalid loss function argument")
+            loss = outputs["loss"] if isinstance(outputs, dict) else outputs['logits']
+        
+        return (loss, outputs) if return_outputs else loss
+
+  
+  
 def train():
-  # check device
-  device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-  print(device)
-
-  # set random seed
-  set_random_seed(conf.values['random_seed'])
+   seed_everything(42)
+   MODEL_NAME = "klue/roberta-large"
+   tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+   device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+   
+   print(device)
+   
+   default_dataset = load_data("../dataset/train/train_revised.csv")
+   default_label = label_to_num(default_dataset['label'].values)
   
-  # set wandb 
-  wandb_config = {'test_name': conf.values['test_name'], 'random_seed': conf.values['random_seed'], 'kfold': conf.values['train_settings']['kfold']}
- 
+   kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+   
+   for fold, (train_idx, val_idx) in enumerate(kfold.split(default_dataset, default_label)):
+        print(f"{fold} FOLD")
+        run=wandb.init(project='klue', entity='quarter100', name='sdg'+'20210931kfold'+'fold'+str(fold))            
+        train_dataset = default_dataset.iloc[train_idx]
+        valid_dataset = default_dataset.iloc[val_idx]
+        
+        train_label = label_to_num(train_dataset['label'].values)
+        valid_label = label_to_num(valid_dataset['label'].values)
+        
+            
+        # tokenizing dataset
+        tokenized_train = tokenized_dataset(train_dataset, tokenizer)
+        tokenized_valid = tokenized_dataset(valid_dataset, tokenizer)
 
-  # load model and tokenizer
-  MODEL_NAME = conf.values['model_name']
-  tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-  
+        # make dataset for pytorch.
+        RE_train_dataset = RE_Dataset(tokenized_train, train_label)
+        RE_valid_dataset = RE_Dataset(tokenized_valid, valid_label)
 
-  # load dataset
-  default_dataset  = load_data(conf.values['data']['train_data_dir'])
-  default_label  = label_to_num(default_dataset['label'].values)
-
-  # K-fold
-  kfold = StratifiedKFold(n_splits=conf.values['train_settings']['kfold'], shuffle=True, random_state=conf.values['random_seed'])
-  for fold, (train_idx, val_idx) in enumerate(kfold.split(default_dataset, default_label)):
-    run = wandb.init(project = conf.values['wandb_options']['project'], entity = conf.values['wandb_options']['entity'], config = wandb_config, name = f"{conf.values['wandb_options']['name']}_{fold}")
-
-    print(f"{fold} FOLD")
-
-    train_label = label_to_num(default_dataset['label'].iloc[train_idx].values)
-    valid_label = label_to_num(default_dataset['label'].iloc[val_idx].values)
+        # setting model hyperparameter
+        
+        model =  REmodel(MODEL_NAME, device)
+        model.to(device)
+        model.model.resize_token_embeddings(tokenizer.vocab_size + 16)
+        
+        training_args = TrainingArguments(
+        output_dir='./results/'+'fold'+str(fold),          # output directory
+        save_total_limit=1,              # number of total save model.
+        save_steps=250,                 # model saving step.
+        num_train_epochs=5,              # total number of training epochs
+        learning_rate=3e-5,               # learning_rate
+        per_device_train_batch_size=32,  # batch size per device during training
+        per_device_eval_batch_size=32,   # batch size for evaluation
+        warmup_steps=406,                # number of warmup steps for learning rate scheduler
+        weight_decay=0.01,               # strength of weight decay
+        logging_dir='./logs',            # directory for storing logs
+        logging_steps=50,              # log saving step.
+        evaluation_strategy='steps', # evaluation strategy to adopt during training
+                                    # `no`: No evaluation during training.
+                                    # `steps`: Evaluate every `eval_steps`.
+                                    # `epoch`: Evaluate every end of epoch.
+        eval_steps = 250,            # evaluation step.
+        load_best_model_at_end = True,
+        seed = 42,
+        fp16=True,
+        group_by_length=True,
+        metric_for_best_model='micro f1 score',
+        label_smoothing_factor = 0.1,
+        report_to="wandb",
+        dataloader_num_workers=2
+        )
+        trainer = MyTrainer(
+        model=model,                         # the instantiated 🤗 Transformers model to be trained
+        args=training_args,                  # training arguments, defined above
+        train_dataset=RE_train_dataset,         # training dataset
+        eval_dataset=RE_valid_dataset,             # evaluation dataset
+        compute_metrics=compute_metrics,         # define metrics function
+        callbacks = [EarlyStoppingCallback(early_stopping_patience=3)],
+        loss_name = 'LabelSmoothLoss'
+        )
+        
+        # train model
+        trainer.train()
+        model_object_file_path =  './best_model/'+'fold'+str(fold)+'/pytorch_model.bin'
+        if not os.path.exists(model_object_file_path):
+          os.makedirs(model_object_file_path)
+        torch.save(model.state_dict(), model_object_file_path)
+        run.finish()
+        
+        
     
-    train_dataset = default_dataset.iloc[train_idx]
-    valid_dataset = default_dataset.iloc[val_idx]
-
-    # tokenizing dataset
-    tokenized_train = tokenized_dataset(train_dataset, tokenizer)
-    tokenized_valid = tokenized_dataset(valid_dataset, tokenizer)
-
-    # make dataset for pytorch.
-    RE_train_dataset = RE_Dataset(tokenized_train, train_label)
-    RE_valid_dataset = RE_Dataset(tokenized_valid, valid_label)
-    
-    # setting model hyperparameter
-    model_config =  AutoConfig.from_pretrained(MODEL_NAME)
-    model_config.num_labels = 30
-
-    model =  AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, config=model_config)
-    #print(model.config)
-    model.parameters
-    model.to(device)
-    
-    save_dir = increment_path('./results/'+MODEL_NAME)
-
-    # 사용한 option 외에도 다양한 option들이 있습니다.
-    # https://huggingface.co/transformers/main_classes/trainer.html#trainingarguments 참고해주세요.
-    training_args = TrainingArguments(
-      output_dir = conf.values['huggingface_options']['output_dir'],         # output directory
-      save_total_limit = conf.values['huggingface_options']['save_total_limit'],              # number of total save model.
-      save_steps = conf.values['huggingface_options']['save_steps'],                 # model saving step.
-      num_train_epochs = conf.values['huggingface_options']['num_train_epochs'],              # total number of training epochs
-      learning_rate=conf.values['huggingface_options']['learning_rate'],               # learning_rate
-      per_device_train_batch_size=conf.values['huggingface_options']['per_device_train_batch_size'],  # batch size per device during training
-      per_device_eval_batch_size=conf.values['huggingface_options']['per_device_eval_batch_size'],   # batch size for evaluation
-      warmup_steps=conf.values['huggingface_options']['warmup_steps'],                # number of warmup steps for learning rate scheduler
-      weight_decay=conf.values['huggingface_options']['weight_decay'],              # strength of weight decay
-      logging_dir=conf.values['huggingface_options']['logging_dir'],           # directory for storing logs
-      logging_steps=conf.values['huggingface_options']['logging_steps'],              # log saving step.
-      evaluation_strategy=conf.values['huggingface_options']['evaluation_strategy'],
-      eval_steps = conf.values['huggingface_options']['eval_steps'],
-      load_best_model_at_end = conf.values['huggingface_options']['load_best_model_at_end'],
-      metric_for_best_model = conf.values['huggingface_options']['metric_for_best_model'],
-      group_by_length = conf.values['huggingface_options']['group_by_length'] # smart padding
-    )
-
-    trainer = MyTrainer(
-      loss_name=conf.values['train_settings']['loss'],
-      model=model,                         # the instantiated 🤗 Transformers model to be trained
-      args=training_args,                  # training arguments, defined above
-      train_dataset=RE_train_dataset,         # training dataset
-      eval_dataset=RE_valid_dataset,             # evaluation dataset
-      compute_metrics=compute_metrics         # define metrics function
-    )
-
-    # train model
-    trainer.train()
-    model.save_pretrained(f'./best_model_{fold}')
-    run.finish()
-  
-
-
 def main():
+  torch.cuda.empty_cache()
+  os.environ["TOKENIZERS_PARALLELISM"] = "false"
   train()
 
 if __name__ == '__main__':
