@@ -8,7 +8,7 @@ import numpy as np
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
 from sklearn.model_selection import KFold, StratifiedKFold
 from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, Trainer, TrainingArguments, RobertaConfig, RobertaTokenizer, RobertaForSequenceClassification, BertTokenizer
-from load_data import *
+from load_data_sm import *
 import wandb
 import random
 
@@ -102,9 +102,11 @@ def train():
         n_splits=args.fold, shuffle=True, random_state=args.seed)
 
     for fold, (train_idx, val_idx) in enumerate(splitter.split(all_dataset, all_label), start=1):
+        if fold == 2:
+            break
         # wandb
         run = wandb.init(project='klue', entity='quarter100',
-                         name=f'{MODEL_NAME}_{fold}_restore')
+                         name=f'pre_{MODEL_NAME}_{fold}')
         print(f'{fold}fold 학습중...')
 
         train_dataset = all_dataset.iloc[train_idx]
@@ -127,11 +129,14 @@ def train():
 
         model = AutoModelForSequenceClassification.from_pretrained(
             MODEL_NAME, config=model_config)
-        # print(model.config)
+
+        model.resize_token_embeddings(tokenizer.vocab_size + 4)
+
+        print(model.config)
         model.parameters
         model.to(device)
 
-        save_dir = f'/opt/ml/code/results/{MODEL_NAME}/{str(fold)}'
+        save_dir = f'/opt/ml/code/results/pre_{MODEL_NAME}/{str(fold)}'
         # 사용한 option 외에도 다양한 option들이 있습니다.
         # https://huggingface.co/transformers/main_classes/trainer.html#trainingarguments 참고해주세요.
         training_args = TrainingArguments(
@@ -167,7 +172,7 @@ def train():
         )
 
         trainer.train()
-        model.save_pretrained(f'/opt/ml/code/best_model/re_{str(fold)}')
+        model.save_pretrained(f'/opt/ml/code/best_model/pre_{str(fold)}')
         run.finish()
 
 
