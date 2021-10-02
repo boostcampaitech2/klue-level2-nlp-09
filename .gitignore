@@ -33,3 +33,5 @@ requirements.txt
 test.csv
 test_with_stopwords.csv
 *.out
+*.npy
+back_translation_result.csv
