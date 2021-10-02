@@ -1,22 +1,20 @@
 import pickle as pickle
 import os
-import pandas as pd
 import torch
 import sklearn
 import numpy as np
-from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
+from sklearn.metrics import accuracy_score, f1_score
 from transformers import AutoTokenizer, Trainer, TrainingArguments, EarlyStoppingCallback
-from load_data_sdg import *
+from load_data_sdg_punct import *
 import random
 from sklearn.model_selection import StratifiedKFold
 import argparse
 from model import REmodel
 import wandb
 from focal_loss import FocalLoss
-from sklearn.utils.class_weight import compute_class_weight
 from collections import Counter
 
-
+#랜덤 시드 고정
 def seed_everything(seed):
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -84,7 +82,7 @@ def label_to_num(label):
   return num_label
 
 
-
+#Huggingface의 Trainer 클래스를 상속, loss function의 선택지를 넓히기 위해 MyTrainer를 구현
 class MyTrainer(Trainer):
     def __init__(self, loss_name, class_weight, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -99,13 +97,17 @@ class MyTrainer(Trainer):
         
         if self.args.past_index >= 0:
             self._past = outputs[self.args.past_index]
+        #CrossEntropy with Class weight(각 클래스 별 데이터 분포를 계산하여 이를 loss 계산시 weight로 제공)
         if self.loss_name == 'CrossEntropy':
             custom_loss = torch.nn.CrossEntropyLoss(weight = self.class_weight).to(device)
+            # custom_loss = torch.nn.CrossEntropyLoss().to(device)
             loss = custom_loss(outputs['logits'], labels)
+        # FocalLoss, loss가 특정 상황에서 nan이 되는 오류가 있어 사용 x
         elif self.loss_name == "FocalLoss":
             custom_loss = FocalLoss(gamma=0.5).to(device)
-            logits = outputs.get('logits')
+            logits = outputs['logits']
             loss = custom_loss(logits, labels)
+        # Label smoothing
         elif self.loss_name == 'LabelSmoothLoss' and self.label_smoother is not None:
             loss = self.label_smoother(outputs, labels)
             loss = loss.to(device)
@@ -116,7 +118,7 @@ class MyTrainer(Trainer):
   
   
 def train():
-   seed_everything(42)
+   seed_everything(args.seed)
    MODEL_NAME = "klue/roberta-large"
    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
@@ -125,17 +127,18 @@ def train():
    
    default_dataset = load_data("../dataset/train/train_revised.csv")
    default_label = label_to_num(default_dataset['label'].values)
+   #클래스별 데이터 분포를 계산하는 부분
    class_weight = Counter(default_label)
    class_weight = list(class_weight.values())
    for i in range(len(class_weight)):
      class_weight[i] = sum(class_weight)/(len(class_weight) * class_weight[i])
    class_weight = torch.tensor(class_weight).to(device=device, dtype=torch.half)
-  
-   kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+   #Kfold 사용
+   kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=args.seed)
    
    for fold, (train_idx, val_idx) in enumerate(kfold.split(default_dataset, default_label)):
         print(f"{fold} FOLD")
-        run=wandb.init(project='klue', entity='quarter100', name='sdg'+'REMODEL+focal '+'fold'+str(fold))            
+        run=wandb.init(project='klue', entity='quarter100', name=args.wandb_name+str(fold))            
         train_dataset = default_dataset.iloc[train_idx]
         valid_dataset = default_dataset.iloc[val_idx]
         
@@ -151,20 +154,17 @@ def train():
         RE_train_dataset = RE_Dataset(tokenized_train, train_label)
         RE_valid_dataset = RE_Dataset(tokenized_valid, valid_label)
 
-        # setting model hyperparameter
-        
         model =  REmodel(MODEL_NAME, device)
         model.to(device)
-        model.model.resize_token_embeddings(tokenizer.vocab_size + 16)
         
         training_args = TrainingArguments(
         output_dir='./results/'+'fold'+str(fold),          # output directory
         save_total_limit=1,              # number of total save model.
         save_steps=250,                 # model saving step.
-        num_train_epochs=5,              # total number of training epochs
-        learning_rate=3e-5,               # learning_rate
-        per_device_train_batch_size=32,  # batch size per device during training
-        per_device_eval_batch_size=32,   # batch size for evaluation
+        num_train_epochs=args.epoch,              # total number of training epochs
+        learning_rate=args.lr,               # learning_rate
+        per_device_train_batch_size=args.batch_size,  # batch size per device during training
+        per_device_eval_batch_size=args.batch_size,   # batch size for evaluation
         warmup_ratio=0.1,                # number of warmup steps for learning rate scheduler
         weight_decay=0.01,               # strength of weight decay
         logging_dir='./logs',            # directory for storing logs
@@ -175,9 +175,9 @@ def train():
                                     # `epoch`: Evaluate every end of epoch.
         eval_steps = 250,            # evaluation step.
         load_best_model_at_end = True,
-        seed = 42,
-        #group_by_length=True,
-        metric_for_best_model='micro f1 score',
+        seed = args.seed,
+        group_by_length=True,
+        metric_for_best_model=args.metric_for_best_model,
         label_smoothing_factor = 0.1,
         report_to="wandb",
         dataloader_num_workers=2
@@ -188,17 +188,17 @@ def train():
         train_dataset=RE_train_dataset,         # training dataset
         eval_dataset=RE_valid_dataset,             # evaluation dataset
         compute_metrics=compute_metrics,         # define metrics function
-        callbacks = [EarlyStoppingCallback(early_stopping_patience=3)],
-        loss_name = 'FocalLoss',
+        callbacks = [EarlyStoppingCallback(early_stopping_patience=args.early_stop)],
+        loss_name = args.loss_function,
         class_weight = class_weight
         )
         
         # train model
         trainer.train()
-        model_object_file_path =  './best_model/'+'fold'+str(fold)+'/pytorch_model.bin'
+        model_object_file_path =  args.save_dir+str(fold)
         if not os.path.exists(model_object_file_path):
           os.makedirs(model_object_file_path)
-        torch.save(model.state_dict(), model_object_file_path)
+        torch.save(model.state_dict(), os.path.join(model_object_file_path, 'pytorch_model.bin'))
         run.finish()
         
         
@@ -209,6 +209,23 @@ def main():
   train()
 
 if __name__ == '__main__':
+  parser = argparse.ArgumentParser()
+  
+  parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
+  parser.add_argument('--loss_function', type=str, default='LabelSmoothLoss', help='loss funciton (default : LabelSmoothLoss)')
+  parser.add_argument('--epoch', type=int, default=5, help='num epoch (default: 5)')
+  parser.add_argument('--lr', type=float, default=3e-5, help='learning_rate (default: 3e-5)')
+  parser.add_argument('--batch_size', type=int, default=32, help='batch size (default: 32)')
+  parser.add_argument('--metric_for_best_model', type=str, default='micro f1 score', help='metric for best model (default : micro f1 score')
+  parser.add_argument('--early_stop', type=int, default=3, help='ealry stop (default: 3)')
+  parser.add_argument('--wandb_name', type=str, default='sdg REMODEL kfold', help='name of wandb, will be displayed with fold number i (need to change for each test)')
+  parser.add_argument('--save_dir', type=str, default = './best_model/fold', help='save_dir for each fold\'s best model (default : ./best_model/fold i)')
+  
+  
+  
+  args =parser.parse_args()
+  print(args)
+  
   main()
   
     

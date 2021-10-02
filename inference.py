@@ -1,6 +1,6 @@
 from transformers import AutoTokenizer
 from torch.utils.data import DataLoader
-from load_data_sdg import *
+from load_data_sdg_punct import *
 import pandas as pd
 import torch
 import torch.nn.functional as F
@@ -78,8 +78,8 @@ def main():
     ## load my model
     MODEL_NAME = "klue/roberta-large" 
     model = REmodel(MODEL_NAME, device)
-    model.model.resize_token_embeddings(tokenizer.vocab_size + 16)
-    best_state_dict = torch.load('/opt/ml/code/best_model/'+'fold'+str(i)+'/pytorch_model.bin')
+    # model.model.resize_token_embeddings(tokenizer.vocab_size + 16)
+    best_state_dict = torch.load(args.save_dir + str(i)+ '/pytorch_model.bin')
     model.load_state_dict(best_state_dict)
     model.to(device)
 
@@ -97,10 +97,23 @@ def main():
     # 아래 directory와 columns의 형태는 지켜주시기 바랍니다.
     output = pd.DataFrame({'id':test_id,'pred_label':pred_answer,'probs':output_prob,})
 
-    output.to_csv('./prediction/submission'+str(i)+'.csv', index=False) # 최종적으로 완성된 예측한 라벨 csv 파일 형태로 저장.
+    output.to_csv(args.csv_dir+str(i)+'.csv', index=False) # 최종적으로 완성된 예측한 라벨 csv 파일 형태로 저장.
     #### 필수!! ##############################################
     print('---- Finish! ----')
 if __name__ == '__main__':
   torch.cuda.empty_cache()
+  parser = argparse.ArgumentParser()
+  
+  parser.add_argument('--save_dir', type=str, default = './best_model/fold', help='save_dir for each fold\'s best model (default : ./best_model/fold i)')
+  parser.add_argument('--csv_dir', type=str, default = './prediction/submission', help='save_dir for each fold\'s logits csv')
+  
+  
+  args =parser.parse_args()
+  print(args)
+  
+  
   main()
+  
+  
+  
   
