@@ -12,6 +12,8 @@ from load_data import *
 from urllib.request import urlopen
 import json
 
+data_path = '.'
+
 def chrome_setting():
     chrome_options = webdriver.ChromeOptions()
     chrome_options.add_argument('--headless')
@@ -27,25 +29,24 @@ def kor_to_trans(text_data, trans_lang, start_index, final_index, trans_list, dr
 
     target_present = EC.presence_of_element_located((By.XPATH, '//*[@id="txtTarget"]'))
 
-    for i in tqdm(range(start_index,final_index)): 
+    for i in tqdm(range(start_index, final_index)): 
         
-        if (i!=0)&(i%99==0):
+        if (i != 0) and (i % 99 == 0):
             time.sleep(2)
-            #   print('{}th : '.format(i), backtrans)
-            np.save(data_path+'kor_to_eng_train_{}_{}.npy'.format(start_index,final_index),trans_list)
+            np.save(data_path + 'kor_to_eng_train_{}_{}.npy'.format(start_index,final_index), trans_list)
         
         try:
             query = f'https://papago.naver.com/?sk=ko&tk={trans_lang}&st="{text_data[i]}"'
             # print(query)
             driver.get(query)
             time.sleep(1.5)
-            element=WebDriverWait(driver, 2).until(target_present)
+            element = WebDriverWait(driver, 2).until(target_present)
             time.sleep(0.1)
             backtrans = element.text 
             #   print(f'element text{element.text}')
 
-            if (backtrans=='')|(backtrans==' '):
-                element=WebDriverWait(driver, 2).until(target_present)
+            if (backtrans=='') or (backtrans==' '):
+                element = WebDriverWait(driver, 2).until(target_present)
                 backtrans = element.text 
                 trans_list.append(backtrans)
             else:
@@ -60,21 +61,20 @@ def kor_to_trans_again(text_data, trans_lang,start_index,final_index, trans_list
 
     for i in tqdm(range(start_index,final_index)): 
         
-        if (i!=0)&(i%99==0):
+        if (i != 0) and (i % 99 == 0):
             time.sleep(2)
-            #   print('{}th : '.format(i), backtrans)
-            np.save(data_path + 'kr_title.npy',trans_list)
+            np.save(data_path + 'kr_title.npy_{}_{}'.format(start_index, final_index), trans_list)
         
         try:
             query = f'https://papago.naver.com/?sk=ko&tk={trans_lang}&st="{text_data[i]}"'
             driver.get(query)
             time.sleep(1.5)
-            element=WebDriverWait(driver, 10).until(target_present)
+            element = WebDriverWait(driver, 10).until(target_present)
             time.sleep(0.1)
             backtrans = element.text 
 
-            if (backtrans=='')|(backtrans==' '):
-                element=WebDriverWait(driver, 10).until(target_present)
+            if (backtrans == '') or (backtrans == ' '):
+                element = WebDriverWait(driver, 10).until(target_present)
                 backtrans = element.text 
                 trans_list.append(backtrans)
             else:
@@ -84,6 +84,7 @@ def kor_to_trans_again(text_data, trans_lang,start_index,final_index, trans_list
             print(e)
 
 stop_words = ['〈', '〉', '(', ')', '<', '>', "《", '》']
+
 def remove_stop_words(s):
     for w in stop_words:
         s = s.replace(w, '')
@@ -91,33 +92,44 @@ def remove_stop_words(s):
     return s
 
 def back_translate(args):
-    driver=chrome_setting()
+    driver = chrome_setting()
 
     df = load_data('../dataset/train/train.csv')
     
     test_sentence = df.loc[:, 'sentence']
-    
+
     if args.remove_stop_words:
         test_sentence = remove_stop_words(test_sentence)
 
-    kor_trans_list = []
-    kor_to_trans(test_sentence, 'en', 0, len(test_sentence), kor_trans_list, driver)
+    if args.only_kor_to_en:
+        kor_trans_list = []
+        kor_to_trans(test_sentence, 'en', 0, len(test_sentence), kor_trans_list, driver)
+        np.save(data_path + 'kor_to_eng_final.npy', kor_trans_list)
 
-    en_trans_list = []
-    kor_to_trans_again(kor_trans_list, 'en', 0, len(kor_trans_list), en_trans_list)
+    if args.only_en_to_kor:
+        en_trans_list = []
+        kor_to_trans_again(kor_trans_list, 'en', 0, len(kor_trans_list), en_trans_list, driver)
+        np.save(data_path + 'en_to_kor_final.npy', en_trans_list)
 
-    test_dict = {'kor': kor_trans_list, 'en': en_trans_list}
-    pd.DataFrame(test_dict)
+    if args.only_kor_to_en and args.only_en_to_kor:
+        test_dict = {'kor': kor_trans_list, 'en': en_trans_list}
 
-    test_dict['test_sentence'] = test_sentence[:]
+        test_dict['test_sentence'] = test_sentence[:]
 
-    pd.DataFrame(test_dict).to_csv('test.csv', encoding='utf-8-sig')
+        stop_words_str = 'remove_stop_wrods' if args.remove_stop_words else ''
+        file_name = f'{stop_words_str}test.csv'
+
+        pd.DataFrame(test_dict).to_csv(file_name, encoding='utf-8-sig')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--remove_stop_words', type=bool, default=False,
                         help='remove stop words (default: False)')
+    parser.add_argument('--only_kor_to_en', default=False, action='store_true',
+                        help='translae only kor to en (default: False)')
+    parser.add_argument('--only_en_to_kor', default=False, action='store_true',
+                        help='translae only en to kor (default: False)')
 
     args = parser.parse_args()
 

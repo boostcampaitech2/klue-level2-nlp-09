@@ -32,3 +32,4 @@ nohup.out
 requirements.txt
 test.csv
 test_with_stopwords.csv
+*.out
