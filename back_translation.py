@@ -50,6 +50,7 @@ def papago_trans(text_data, origin_lang, target_lang, start_index, final_index, 
                 trans_list.append(backtrans)
         
         except BaseException as e:
+            trans_list.append('')
             print('errorr with papago_trans', e)
 
 stop_words = ['〈', '〉', '(', ')', '<', '>', "《", '》']

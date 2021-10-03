@@ -35,3 +35,4 @@ test_with_stopwords.csv
 *.out
 *.npy
 back_translation_result.csv
+en_to_kor_final.txt
