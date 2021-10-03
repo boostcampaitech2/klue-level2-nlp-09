@@ -19,7 +19,6 @@ class Preprocess:
         sub_idx, obj_idx= [], []
         sentence= []
 
-        """add special token"""
         for i, [x, y, z] in enumerate(zip(data['subject_entity'], data['object_entity'], data['sentence'])):
             sub_typ= x[1:-1].split(':')[-1].split('\'')[-2]
             obj_typ= y[1:-1].split(':')[-1].split('\'')[-2]
@@ -61,7 +60,7 @@ class Preprocess:
 
             sentence.append(z)
 
-            """special token과 type 추가한 데이터 프레임 생성"""
+        """special token과 type 추가한 데이터 프레임 생성"""
         df= pd.DataFrame({'id': data['id'], 'sentence' : sentence, 'subject_entity': sub_entity, 'object_entity': obj_entity,
                                 'subject_type': sub_type, 'object_type': obj_type, 'label': data['label'],
                                 'subject_idx': sub_idx, 'object_idx': obj_idx})
@@ -72,12 +71,8 @@ class Preprocess:
         
         return df
     
-    """이제 토크나이저를 생성해서.. 문장을 token화 시켜주어야 한다 !"""
-    """model_name이 필요할 것 같음 -> train 파트에서 선언해줄거니까 굳이 사용 X.."""
     def tokenized_dataset(self, data, tokenizer):
-        """일단 pretrained된 tokenizer를 받아와서 원하고자 하는 sentence를 쪼갠다..
-            모델에 따라 tokenize 방법론이 다르니까 유의하도록 하자 !
-        """
+        """add tokens"""
         tokens= ['PER', 'LOC', 'POH', 'DAT', 'NOH', 'ORG']
         tokenizer.add_tokens(tokens)     
 

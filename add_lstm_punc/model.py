@@ -4,12 +4,6 @@ import torch.nn.functional as F
 from transformers import AutoModel, AutoConfig
 from torch.cuda.amp import autocast
 
-"""
-    pretrained된 BERT 가져와서 
-    이걸 거친 것을 LSTM에 넣어줄 것이다..
-    여기서 아이디어가.. LSTM    
-"""
-
 class Model(nn.Module):
     def __init__(self, MODEL_NAME):
         super().__init__()

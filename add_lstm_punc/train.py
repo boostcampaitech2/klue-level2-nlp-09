@@ -14,13 +14,6 @@ import wandb
 from dataset import *
 from model import *
 
-"""
-    여기서는 이제.. 학습을 진행해야지.. 
-    모델을 만들고
-    loss를 지정해주고..
-    huggingface 라이브러리를 잘 사용할 줄 아는 것도 중요한 것 같음
-
-"""
 
 def seed_everything(seed):
     random.seed(seed)
