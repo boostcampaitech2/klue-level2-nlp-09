@@ -5,12 +5,14 @@ from transformers import AutoModel, AutoConfig
 from torch.cuda.amp import autocast
 
 class Model(nn.Module):
-    def __init__(self, MODEL_NAME):
+    def __init__(self, MODEL_NAME, pretrain_path=None):
         super().__init__()
 
         self.model_config= AutoConfig.from_pretrained(MODEL_NAME)
         self.model_config.num_labels= 30
         self.model= AutoModel.from_pretrained(MODEL_NAME, config= self.model_config)
+        if pretrain_path:
+            self.model.load_state_dict(torch.load(pretrain_path))
         self.hidden_dim= self.model_config.hidden_size # roberta hidden dim = 1024
 
         self.lstm= nn.LSTM(input_size= self.hidden_dim, hidden_size= self.hidden_dim, num_layers= 2, dropout= 0.2,
