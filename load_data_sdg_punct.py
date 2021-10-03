@@ -1,8 +1,5 @@
-import pickle as pickle
-import os
 import pandas as pd
 import torch
-from transformers import AutoTokenizer
 
 class RE_Dataset(torch.utils.data.Dataset):
   """ Dataset 구성을 위한 class."""
@@ -18,11 +15,15 @@ class RE_Dataset(torch.utils.data.Dataset):
   def __getitem__(self, idx):
     item = {key: val[idx].clone().detach() for key, val in self.pair_dataset.items()}
     item['labels'] = torch.tensor(self.labels[idx])
-    for idx in range(len(item['input_ids'])-1):
-      if item['input_ids'][idx]==36 and item['input_ids'][idx+1]==14:
-        item['start_sub_idx'] = idx
-      elif item['input_ids'][idx]==7 and item['input_ids'][idx+1]==65:
-        item['start_obj_idx'] = idx
+    sub_i = []
+    obj_i = []
+    for idx_t in range(len(item['input_ids'])-1):    
+      if item['input_ids'][idx_t]==36 and item['input_ids'][idx_t+1]==14:
+        sub_i.append(idx_t)
+      elif item['input_ids'][idx_t]==7 and item['input_ids'][idx_t+1]==65:
+        obj_i.append(idx_t)
+    item['start_sub_idx'] = sub_i[1]
+    item['start_obj_idx'] = obj_i[1]
     return item
 
   def __len__(self):
@@ -36,7 +37,9 @@ def preprocessing_dataset(data):
   sentence = []
   
   for i, [x, y, z] in enumerate(zip(data['subject_entity'], data['object_entity'], data['sentence'])):
-      
+      x = x.replace('*', '')
+      y = y.replace('*', '')
+      z = z.replace('*', '')  
       # Subject_entity, Object_entity string에서 Entity type 추출
       # PER, ORG, LOC, DAT, POH, NOH
       sub_typ= x[1:-1].split(':')[-1].split('\'')[-2] 
@@ -67,7 +70,7 @@ def preprocessing_dataset(data):
       obj_type.append(obj_typ); obj_idx.append(obj_i)
       
       #Typed entity marker(punct) -> An Improved Baseline for Sentence-level Relation Extraction(Zhou, 2021)
-      # Ex) Bill was born in Seattle (Subject Entity(Type : PER) : Bill , Object Entity(Type : LOC) : Seattle) -> @ * PER * Bill @ was born in # ^ city ^ Seattle #
+      # Ex) Bill was born in Seattle (Subject Entity(Type : PER) : Bill , Object Entity(Type : LOC) : Seattle) -> @ * PER * Bill @ was born in # ^ LOC ^ Seattle #
       if sub_i[0] < obj_i[0]:
         z= z[:sub_i[0]] + '@*'+sub_typ+'*'+ z[sub_i[0]: sub_i[1]+1] + '@' + z[sub_i[1]+1:]
         z= z[:obj_i[0]+7] + '#^'+ obj_typ +'^'+ z[obj_i[0]+7: obj_i[1]+8]+ '#'+ z[obj_i[1]+8:]
@@ -95,8 +98,14 @@ def load_data(dataset_dir):
 def tokenized_dataset(dataset, tokenizer):
   """ tokenizer에 따라 sentence를 tokenizing 합니다."""
   #Full sentence 형태로 Feed할 예정
-  
+  concat_list=[]
+  for sub_type, obj_type, sub_entity, obj_entity in zip(dataset['subject_type'], dataset['object_type'], dataset['subject_entity'], dataset['object_entity']):
+    text = '@*' + sub_type + '*' + sub_entity + '@' + '와' + '#^' + obj_type + '^' + obj_entity + '#' + '의 관계'
+    concat_list.append(text)
+  tokens= ['PER', 'LOC', 'POH', 'DAT', 'NOH', 'ORG']
+  tokenizer.add_tokens(tokens) 
   tokenized_sentences = tokenizer(
+      concat_list,
       list(dataset['sentence']),
       return_tensors="pt",
       padding=True,

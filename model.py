@@ -17,8 +17,6 @@ class REmodel(nn.Module):
         self.relu = nn.ReLU()
         self.dropout = nn.Dropout(p=0.1)
         self.lin2 = nn.Linear(in_features = self.hidden_size, out_features = self.num_labels)
-        # 논문과는 다르게 첫번째 linear layer에 He initialization을 추가(이후 Activation function으로 ReLu를 거치기 때문에)
-        nn.init.kaiming_normal_(self.lin1.weight)
         
     
     

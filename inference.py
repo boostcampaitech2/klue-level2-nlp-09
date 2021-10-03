@@ -78,7 +78,7 @@ def main():
     ## load my model
     MODEL_NAME = "klue/roberta-large" 
     model = REmodel(MODEL_NAME, device)
-    # model.model.resize_token_embeddings(tokenizer.vocab_size + 16)
+    model.model.resize_token_embeddings(tokenizer.vocab_size + 6)
     best_state_dict = torch.load(args.save_dir + str(i)+ '/pytorch_model.bin')
     model.load_state_dict(best_state_dict)
     model.to(device)
