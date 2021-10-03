@@ -110,7 +110,6 @@ def train():
     # MODEL_NAME = "bert-base-uncased"
     MODEL_NAME = args.model
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = Model(MODEL_NAME)
     '''
     special_tokens_dict = {'additional_special_tokens': ['[SUB]','[/SUB]', '[OBJ]', '[/OBJ]']}
     tokenizer.add_special_tokens(special_tokens_dict)
@@ -139,6 +138,10 @@ def train():
         RE_train_dataset = RE_Dataset(tokenized_train, train_label)
         RE_valid_dataset = RE_Dataset(tokenized_valid, valid_label)
 
+        model = Model(MODEL_NAME)
+        model.parameters
+        model.to(device)
+        
         '''
         # setting model hyperparameter
         model_config =  AutoConfig.from_pretrained(MODEL_NAME)
@@ -148,7 +151,6 @@ def train():
         model.parameters
         model.to(device)
         '''
-
         
         save_dir = increment_path('./results/'+'klue-roberta')
         # 사용한 option 외에도 다양한 option들이 있습니다.
@@ -190,10 +192,10 @@ def train():
         #wandb.init(project='P2', group=CFG.MODEL_NAME, name=save_dir.split('/')[-1], tags=CFG.tag, config=CFG)
         run = wandb.init(project='klue', entity='quarter100', name='punct-concatchange-'+'fold'+str(fold))
         trainer.train()
-        model_object_file_path =  './best_model/'+'fold'+str(fold)+'/pytorch_model.bin'
+        model_object_file_path =  './best_model/fold'+str(fold)
         if not os.path.exists(model_object_file_path):
-            os.makedirs(model_object_file_path)
-        torch.save(model.state_dict(), model_object_file_path)
+          os.makedirs(model_object_file_path)
+        torch.save(model.state_dict(), os.path.join(model_object_file_path, 'pytorch_model.bin'))
         run.finish()
     
 def main():
