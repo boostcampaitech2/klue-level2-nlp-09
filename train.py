@@ -29,7 +29,7 @@ def get_config():
     parser = argparse.ArgumentParser()
 
     parser.add_argument("--seed", type=int, default=42, help="random seed (default: 42)")
-    parser.add_argument("--train_path", type=str, default="/opt/ml/dataset/train/train.csv", help="train csv path (default: /opt/ml/dataset/train/train.csv")
+    parser.add_argument("--train_path", type=str, default="/opt/ml/dataset/train/train_spc_char1.csv", help="train csv path (default: /opt/ml/dataset/train/train.csv")
     parser.add_argument("--tokenize_option", type=str, default="PUN", help="token option ex) SUB, PUN")
     parser.add_argument("--fold", type=int, default=5, help="fold (default: 5)")
     parser.add_argument("--model", type=str, default="klue/roberta-large", help="model type (default: klue/roberta-large)")
@@ -43,7 +43,7 @@ def get_config():
     parser.add_argument("--logging_steps", type=int, default=50, help="logging_steps (default: 50)")
     parser.add_argument("--weight_decay", type=float, default=0.01, help="weight_decay (default: 0.01)")
     parser.add_argument("--metric_for_best_model", type=str, default="micro f1 score", help="metric_for_best_model (default: micro f1 score")
-    parser.add_argument("--save_dir", type=str, default=f"./result/{args.model}_kfold{fold}_lstm_punc_single", help="save dir (default: - )")
+    parser.add_argument("--loss", type=str, default='FocalLoss', help="loss function (default: 0.01)")
     args = parser.parse_args()
 
     return args
@@ -94,7 +94,6 @@ def klue_re_micro_f1(preds, labels):
 def klue_re_auprc(probs, labels):
     """KLUE-RE AUPRC (with no_relation)"""
     labels = np.eye(30)[labels]
-
     score = np.zeros((30,))
     for c in range(30):
         targets_c = labels.take([c], axis=1).ravel()
@@ -136,7 +135,7 @@ def train(args):
 
     kfold = StratifiedKFold(n_splits=args.fold, shuffle=True, random_state=args.seed)
     for fold, (train_idx, val_idx) in enumerate(kfold.split(all_dataset, all_label)):
-        run = wandb.init(project="klue", entity="quarter100", name=f"lstm_punc_add_type_single")
+        run = wandb.init(project="klue", entity="quarter100", name=f"lstm_punc_add_type_single_sc1/{fold}")
         print(f"fold: {fold} start!")
 
         # load dataset
@@ -158,8 +157,9 @@ def train(args):
         model.model.resize_token_embeddings(tokenizer.vocab_size + token_size)
         model.to(device)
 
+        save_dir = f"./result/{args.model}_kfold{fold}_lstm_punc_single"
         training_args = TrainingArguments(
-            output_dir=args.save_dir,
+            output_dir=save_dir,
             save_total_limit=2,
             save_steps=args.save_steps,
             num_train_epochs=args.epochs,

@@ -78,7 +78,7 @@ class Preprocess:
         # check add [sub], [obj] token sentence
         # for i in range(10):
         #     print(f"SUB : {df.loc[i]['subject_entity']}\nOBJ : {df.loc[i]['object_entity']}\nSENTENCE : {df.loc[i]['sentence']}\n\n")
-
+        # assert(False)
         return df
 
     def tokenized_dataset(self, data, tokenizer):

@@ -31,7 +31,6 @@ class FocalLoss(nn.Module):
                 self.alpha = self.alpha.type_as(input.data)
             select = (target != 0).type(torch.LongTensor).cuda()
             at = self.alpha.gather(0, select.data.view(-1))
-            # at = self.alpha.gather(0, target.data.view(-1))
             logpt = logpt * at
 
         loss = -1 * (1 - pt) ** self.gamma * logpt
