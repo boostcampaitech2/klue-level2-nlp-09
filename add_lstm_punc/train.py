@@ -131,57 +131,57 @@ def train(args):
 
     kfold= StratifiedKFold(n_splits= 5, shuffle= True, random_state= 42)
     for fold, (train_idx, val_idx) in enumerate(kfold.split(all_dataset, all_label)):
-        if fold== 3:
-            run= wandb.init(project= 'klue', entity= 'quarter100', name= f'sm_kr_kfold{fold}_lstm_punc_add_type_single')
-            print(f'fold: {fold} start!')
-            train_dataset= all_dataset.iloc[train_idx]
-            val_dataset= all_dataset.iloc[val_idx]
+        
+        run= wandb.init(project= 'klue', entity= 'quarter100', name= f'sm_kr_kfold{fold}_lstm_punc_add_type_single')
+        print(f'fold: {fold} start!')
+        train_dataset= all_dataset.iloc[train_idx]
+        val_dataset= all_dataset.iloc[val_idx]
 
-            train_label= preprocess.label_to_num(train_dataset['label'].values)
-            val_label= preprocess.label_to_num(val_dataset['label'].values)
+        train_label= preprocess.label_to_num(train_dataset['label'].values)
+        val_label= preprocess.label_to_num(val_dataset['label'].values)
 
-            tokenized_train, token_size= preprocess.tokenized_dataset(train_dataset, tokenizer)
-            tokenized_val, _= preprocess.tokenized_dataset(val_dataset, tokenizer)
+        tokenized_train, token_size= preprocess.tokenized_dataset(train_dataset, tokenizer)
+        tokenized_val, _= preprocess.tokenized_dataset(val_dataset, tokenizer)
 
-            trainset= Dataset(tokenized_train, train_label)
-            valset= Dataset(tokenized_val, val_label)
+        trainset= Dataset(tokenized_train, train_label)
+        valset= Dataset(tokenized_val, val_label)
 
-            model= Model(args.model)
-            model.model.resize_token_embeddings(tokenizer.vocab_size + token_size)
-            model.to(device)
+        model= Model(args.model)
+        model.model.resize_token_embeddings(tokenizer.vocab_size + token_size)
+        model.to(device)
 
-            save_dir= f'./result/{args.model}_kfold{fold}_lstm_punc_single'
-            training_args= TrainingArguments(
-                output_dir= save_dir,
-                save_total_limit= 2,
-                save_steps=args.save_steps,
-                num_train_epochs=args.epochs,
-                learning_rate=args.lr,
-                per_device_train_batch_size=args.batch,
-                per_device_eval_batch_size=args.batch_valid,
-                label_smoothing_factor=0.1,
-                warmup_ratio= args.warmup,
-                weight_decay=args.weight_decay,
-                logging_dir='./logs',
-                logging_steps=args.logging_steps,
-                metric_for_best_model= args.metric_for_best_model,
-                evaluation_strategy= 'steps',
-                group_by_length= True,
-                eval_steps= args.eval_steps,
-                load_best_model_at_end=True
-            )
+        save_dir= f'./result/{args.model}_kfold{fold}_lstm_punc_single'
+        training_args= TrainingArguments(
+            output_dir= save_dir,
+            save_total_limit= 2,
+            save_steps=args.save_steps,
+            num_train_epochs=args.epochs,
+            learning_rate=args.lr,
+            per_device_train_batch_size=args.batch,
+            per_device_eval_batch_size=args.batch_valid,
+            label_smoothing_factor=0.1,
+            warmup_ratio= args.warmup,
+            weight_decay=args.weight_decay,
+            logging_dir='./logs',
+            logging_steps=args.logging_steps,
+            metric_for_best_model= args.metric_for_best_model,
+            evaluation_strategy= 'steps',
+            group_by_length= True,
+            eval_steps= args.eval_steps,
+            load_best_model_at_end=True
+        )
 
-            trainer= Trainer(
-                model= model,
-                args= training_args,
-                train_dataset= trainset,
-                eval_dataset= valset,
-                compute_metrics= compute_metrics,
-                callbacks= [EarlyStoppingCallback(early_stopping_patience= 3)]
-            )
+        trainer= Trainer(
+            model= model,
+            args= training_args,
+            train_dataset= trainset,
+            eval_dataset= valset,
+            compute_metrics= compute_metrics,
+            callbacks= [EarlyStoppingCallback(early_stopping_patience= 3)]
+        )
 
-            trainer.train()
-            run.finish()
+        trainer.train()
+        run.finish()
         
 
 
