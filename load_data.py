@@ -76,10 +76,6 @@ def load_data(path):
             "object_idx": obj_idx,
         }
     )
-
-    # check add [sub], [obj] token sentence
-    # for i in range(10):
-    # print(f"SUB : {df.loc[i]['subject_entity']}\nOBJ : {df.loc[i]['object_entity']}\nSENTENCE : {df.loc[i]['sentence']}\n\n")
     return df
 
 
@@ -106,14 +102,5 @@ def tokenized_dataset(dataset, tokenizer):
         return_token_type_ids=False,
     )
 
-    # check decoded, tokenized token
-    # for i in range(10):
-    #   text_tok= tokenizer.tokenize(list(dataset['sentence'])[i], add_special_tokens=True)
-
-    #   text_enc= tokenizer.encode(list(dataset['sentence'])[i], add_special_tokens=True)
-    #   text_dec= tokenizer.decode(text_enc)
-    #   print(text_dec)
-    #   print(text_tok)
-    #   print()
 
     return tokenized_sentences

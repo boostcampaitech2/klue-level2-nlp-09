@@ -1,6 +1,6 @@
 from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, Trainer, TrainingArguments
 from torch.utils.data import DataLoader
-from load_data3 import *
+from load_data import *
 import pandas as pd
 import torch
 import torch.nn.functional as F
@@ -81,13 +81,13 @@ def main():
     # MODEL_NAME = 'klue/roberta-large' # model dir.
     model = Model("klue/roberta-large")
     # model.model.resize_token_embeddings(tokenizer.vocab_size + 4)
-    best_state_dict = torch.load("/opt/ml/Mybaseline/results/klue-roberta4/checkpoint-4860/pytorch_model.bin")
+    best_state_dict = torch.load("./best_model/lstm-punct-spc-chr1/fold4/pytorch_model.bin")
     model.load_state_dict(best_state_dict)
     model.parameters
     model.to(device)
 
     ## load test datset
-    test_dataset_dir = "../dataset/test/test_data.csv"
+    test_dataset_dir = "../dataset/test/test_spc_char1.csv"
     test_id, test_dataset, test_label = load_test_dataset(test_dataset_dir, tokenizer)
     Re_test_dataset = RE_Dataset(test_dataset, test_label)
 
@@ -106,7 +106,7 @@ def main():
         }
     )
 
-    output.to_csv("./prediction/submission_lstm_concatchange.csv", index=False)  # 최종적으로 완성된 예측한 라벨 csv 파일 형태로 저장.
+    output.to_csv("./prediction/submission_lstm_spc-char-1-fold4.csv", index=False)  # 최종적으로 완성된 예측한 라벨 csv 파일 형태로 저장.
     #### 필수!! ##############################################
     print("---- Finish! ----")
 

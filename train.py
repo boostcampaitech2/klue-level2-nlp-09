@@ -140,7 +140,6 @@ def train():
     # load model and tokenizer
     MODEL_NAME = args.model
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
-    model = Model(MODEL_NAME)
 
     # load dataset
     default_dataset = load_data("../dataset/train/train_spc_char1.csv")
@@ -164,6 +163,10 @@ def train():
         # make dataset for pytorch.
         RE_train_dataset = RE_Dataset(tokenized_train, train_label)
         RE_valid_dataset = RE_Dataset(tokenized_valid, valid_label)
+
+        model = Model(MODEL_NAME)
+        model.parameters
+        model.to(device)
 
         save_dir = increment_path("./results/" + "klue-roberta")
         # 사용한 option 외에도 다양한 option들이 있습니다.
