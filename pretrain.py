@@ -116,29 +116,23 @@ def train():
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
     data_collator = transformers.DataCollatorForLanguageModeling(
-        tokenizer=tokenizer, mlm=True, mlm_probability=0.15
+        tokenizer=tokenizer, mlm=True, mlm_probability=0.15, pad_to_multiple_of=8
     )
     line_dataset = LineByLineTextDataset(
         tokenizer=tokenizer,
         file_path="en_to_kor_final.txt",
-        block_size=256,
+        block_size=64,
     )
     line_dataset.examples = np.array(line_dataset.examples)
 
     date_time = date.today().isoformat()
 
-    kfold = KFold(n_splits=5, shuffle=True, random_state=42)
-    for fold, (train_idx, val_idx) in enumerate(kfold.split(line_dataset)):
-        train_dataset = line_dataset[train_idx]
-        val_dataset = line_dataset[val_idx]
-
+    if not args.eval:
         # setting model hyperparameter
-        model_config =  AutoConfig.from_pretrained(MODEL_NAME)
-        model_config.num_labels = 30
+        model_config = AutoConfig.from_pretrained(MODEL_NAME)
 
         model = AutoModelForMaskedLM.from_pretrained(MODEL_NAME, config=model_config)
         model.to(device)
-
 
         save_dir = increment_path(f'./pretrained_model/{date_time}/{args.model}')
         # 사용한 option 외에도 다양한 option들이 있습니다.
@@ -150,46 +144,94 @@ def train():
             num_train_epochs=args.epochs,  # total number of training epochs
             learning_rate=args.lr,  # learning_rate
             per_device_train_batch_size=args.batch,  # batch size per device during training
-            per_device_eval_batch_size=args.batch_valid,  # batch size for evaluation
             warmup_steps=args.warmup,  # number of warmup steps for learning rate scheduler
             weight_decay=args.weight_decay,  # strength of weight decay
             logging_dir='./logs',  # directory for storing logs
             logging_steps=args.logging_steps,  # log saving step.
-            evaluation_strategy='steps',  # evaluation strategy to adopt during training
-            # `no`: No evaluation during training.
-            # `steps`: Evaluate every `eval_steps`.
-            # `epoch`: Evaluate every end of epoch.
-            eval_steps=args.eval_steps,  # evaluation step.
-            load_best_model_at_end=True,
             seed=args.seed,
             overwrite_output_dir=False,
             fp16=args.fp16,
             fp16_opt_level='O3',
             fp16_full_eval=args.fp16,
             fp16_backend='amp',
-            metric_for_best_model='micro f1 score',
             report_to='wandb',
             run_name=f'{args.model}-pretrain',
-            label_smoothing_factor=0.1
         )
         print(training_args.parallel_mode)
         trainer = Trainer(
-            model=model,                         # the instantiated 🤗 Transformers model to be trained
-            args=training_args,                  # training arguments, defined above
+            model=model,  # the instantiated 🤗 Transformers model to be trained
+            args=training_args,  # training arguments, defined above
             data_collator=data_collator,
-            train_dataset=train_dataset,
-            eval_dataset=val_dataset,
-            compute_metrics=compute_metrics,
+            train_dataset=line_dataset,
         )
 
         # train model
-        #wandb.init(project='P2', group=CFG.MODEL_NAME, name=save_dir.split('/')[-1], tags=CFG.tag, config=CFG)
+        # wandb.init(project='P2', group=CFG.MODEL_NAME, name=save_dir.split('/')[-1], tags=CFG.tag, config=CFG)
 
         trainer.train()
         model.save_pretrained('./pretrained/')
+    else:
+        kfold = KFold(n_splits=5, shuffle=True, random_state=42)
+        for fold, (train_idx, val_idx) in enumerate(kfold.split(line_dataset)):
+            train_dataset = line_dataset[train_idx]
+            val_dataset = line_dataset[val_idx]
 
-        if kfold == 0:
-            break
+            # setting model hyperparameter
+            model_config =  AutoConfig.from_pretrained(MODEL_NAME)
+
+            model = AutoModelForMaskedLM.from_pretrained(MODEL_NAME, config=model_config)
+            model.to(device)
+
+
+            save_dir = increment_path(f'./pretrained_model/{date_time}/{args.model}')
+            # 사용한 option 외에도 다양한 option들이 있습니다.
+            # https://huggingface.co/transformers/main_classes/trainer.html#trainingarguments 참고해주세요.
+            training_args = TrainingArguments(
+                output_dir=save_dir,  # output directory
+                save_total_limit=3,  # number of total save model.
+                save_steps=args.save_steps,  # model saving step.
+                num_train_epochs=args.epochs,  # total number of training epochs
+                learning_rate=args.lr,  # learning_rate
+                per_device_train_batch_size=args.batch,  # batch size per device during training
+                per_device_eval_batch_size=args.batch_valid,  # batch size for evaluation
+                warmup_steps=args.warmup,  # number of warmup steps for learning rate scheduler
+                weight_decay=args.weight_decay,  # strength of weight decay
+                logging_dir='./logs',  # directory for storing logs
+                logging_steps=args.logging_steps,  # log saving step.
+                evaluation_strategy='steps',  # evaluation strategy to adopt during training
+                # `no`: No evaluation during training.
+                # `steps`: Evaluate every `eval_steps`.
+                # `epoch`: Evaluate every end of epoch.
+                eval_steps=args.eval_steps,  # evaluation step.
+                load_best_model_at_end=True,
+                seed=args.seed,
+                overwrite_output_dir=False,
+                fp16=args.fp16,
+                fp16_opt_level='O3',
+                fp16_full_eval=args.fp16,
+                fp16_backend='amp',
+                metric_for_best_model='micro f1 score',
+                report_to='wandb',
+                run_name=f'{args.model}-pretrain',
+            )
+            print(training_args.parallel_mode)
+            trainer = Trainer(
+                model=model,                         # the instantiated 🤗 Transformers model to be trained
+                args=training_args,                  # training arguments, defined above
+                data_collator=data_collator,
+                train_dataset=train_dataset,
+                eval_dataset=val_dataset,
+                compute_metrics=compute_metrics,
+            )
+
+            # train model
+            #wandb.init(project='P2', group=CFG.MODEL_NAME, name=save_dir.split('/')[-1], tags=CFG.tag, config=CFG)
+
+            trainer.train()
+            model.save_pretrained('./pretrained/')
+
+            if kfold == 0:
+                break
     
 def main():
     torch.cuda.empty_cache()
@@ -202,14 +244,15 @@ if __name__ == '__main__':
     parser.add_argument('--model', type=str, default='klue/roberta-large', help='model type (default: klue/roberta-large)')
     parser.add_argument('--epochs', type=int, default=10, help='number of epochs to train (default: 5)')
     parser.add_argument('--lr', type=float, default=3e-5, help='learning rate (default: 5e-5)')
-    parser.add_argument('--batch', type=int, default=22, help='input batch size for training (default: 16)')
-    parser.add_argument('--batch_valid', type=int, default=22, help='input batch size for validing (default: 16)')
+    parser.add_argument('--batch', type=int, default=16, help='input batch size for training (default: 16)')
+    parser.add_argument('--batch_valid', type=int, default=16, help='input batch size for validing (default: 16)')
     parser.add_argument('--warmup', type=int, default=812, help='warmup_steps (default: 200)')
-    parser.add_argument('--eval_steps', type=int, default=406, help='eval_steps (default: 406)')
-    parser.add_argument('--save_steps', type=int, default=406, help='save_steps (default: 406)')
+    parser.add_argument('--eval_steps', type=int, default=100, help='eval_steps (default: 406)')
+    parser.add_argument('--save_steps', type=int, default=100, help='save_steps (default: 406)')
     parser.add_argument('--logging_steps', type=int, default=100, help='logging_steps (default: 100)')
     parser.add_argument('--weight_decay', type=float, default=0.01, help='weight_decay (default: 0.01)')
     parser.add_argument('--fp16', default=True, action='store_true', help='using fp16 mixed precision')
+    parser.add_argument('--eval', default=False, action='store_true', help='using fp16 mixed precision')
 
     args = parser.parse_args()
     import time
