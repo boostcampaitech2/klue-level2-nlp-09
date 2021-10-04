@@ -18,9 +18,9 @@ class RE_Dataset(torch.utils.data.Dataset):
     sub_i = []
     obj_i = []
     for idx_t in range(len(item['input_ids'])-1):    
-      if item['input_ids'][idx_t]==36 and item['input_ids'][idx_t+1]==14:
+      if item['input_ids'][idx_t]==36 and item['input_ids'][idx_t+1]==14: # @:36 * : 14
         sub_i.append(idx_t)
-      elif item['input_ids'][idx_t]==7 and item['input_ids'][idx_t+1]==65:
+      elif item['input_ids'][idx_t]==7 and item['input_ids'][idx_t+1]==65: # # : 7, ^ : 65
         obj_i.append(idx_t)
     item['start_sub_idx'] = sub_i[1]
     item['start_obj_idx'] = obj_i[1]

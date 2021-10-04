@@ -4,6 +4,7 @@ import torch
 import sklearn
 import numpy as np
 from sklearn.metrics import accuracy_score, f1_score
+from torch.optim import lr_scheduler
 from transformers import AutoTokenizer, Trainer, TrainingArguments, EarlyStoppingCallback, get_cosine_with_hard_restarts_schedule_with_warmup
 from load_data_sdg_punct import *
 import random
@@ -11,7 +12,6 @@ from sklearn.model_selection import StratifiedKFold
 import argparse
 from model import REmodel
 import wandb
-
 #랜덤 시드 고정
 def seed_everything(seed):
     random.seed(seed)
@@ -79,31 +79,7 @@ def label_to_num(label):
   
   return num_label
 
-#Huggingface의 Trainer 클래스를 상속, loss function의 선택지를 넓히기 위해 MyTrainer를 구현
-class MyTrainer(Trainer):
-    def __init__(self, loss_name, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.loss_name= loss_name
-        
-    def compute_loss(self, model, inputs, return_outputs=False):
-        
-        labels = inputs.pop("labels")
-        outputs = model(**inputs)
-        device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-        
-        if self.args.past_index >= 0:
-            self._past = outputs[self.args.past_index]
-        #CrossEntropy
-        if self.loss_name == 'CrossEntropy':
-            custom_loss = torch.nn.CrossEntropyLoss().to(device)
-            loss = custom_loss(outputs['logits'], labels)
-        # Label smoothing
-        elif self.loss_name == 'LabelSmoothLoss' and self.label_smoother is not None:
-            loss = self.label_smoother(outputs, labels)
-            loss = loss.to(device)
-        else:
-            print("invalid loss function argument")
-        return (loss, outputs) if return_outputs else loss
+
 
 def train():
   seed_everything(args.seed)
@@ -165,17 +141,14 @@ def train():
         label_smoothing_factor = 0.1,
         report_to="wandb",
         dataloader_num_workers=2,
-        # lr_scheduler_type="cosine_with_restarts"
         )
-        
-        trainer = MyTrainer(
+        trainer = Trainer(
         model=model,                         # the instantiated 🤗 Transformers model to be trained
         args=training_args,                  # training arguments, defined above
         train_dataset=RE_train_dataset,         # training dataset
         eval_dataset=RE_valid_dataset,             # evaluation dataset
         compute_metrics=compute_metrics,         # define metrics function
         callbacks = [EarlyStoppingCallback(early_stopping_patience=args.early_stop)],
-        loss_name = 'LabelSmoothLoss'
         )
         
         # train model

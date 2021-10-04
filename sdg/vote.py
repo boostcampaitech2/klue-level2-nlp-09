@@ -38,7 +38,6 @@ df1['probs'] = df1['probs'].apply(lambda x : to_nparray(x)*0.2) + df2['probs'].a
 #가중치 조절 필수! 모든 가중치의 합은 1이 되도록
 for i in range(len(df1['probs'])):
     df1['probs'][i] = F.softmax(torch.tensor(df1['probs'][i]), dim=0).detach().cpu().numpy()
-# 0 제외 나머지 클래스에 0.1씩 더하기?
 df1['pred_label'] = df1['probs'].apply(lambda x : num_to_label(np.argmax(x)))
 df1['probs'] = df1['probs'].apply(lambda x : str(list(x)))
 
