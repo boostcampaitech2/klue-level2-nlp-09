@@ -11,6 +11,7 @@ from load_data import *
 
 from urllib.request import urlopen
 import json
+from datetime import datetime
 
 data_path = '.'
 
@@ -37,13 +38,13 @@ def papago_trans(text_data, origin_lang, target_lang, start_index, final_index, 
         try:
             query = f'https://papago.naver.com/?sk={origin_lang}&tk={target_lang}&st={text_data[i]}'
             driver.get(query)
-            time.sleep(1.5)
-            element = WebDriverWait(driver, 10).until(target_present)
-            time.sleep(0.1)
+            time.sleep(1.6)
+            element = WebDriverWait(driver, 20).until(target_present)
+            time.sleep(0.2)
             backtrans = element.text 
 
             if backtrans == '' or backtrans ==' ':
-                element = WebDriverWait(driver, 10).until(target_present)
+                element = WebDriverWait(driver, 20).until(target_present)
                 backtrans = element.text 
                 trans_list.append(backtrans)
             else:
@@ -66,6 +67,8 @@ def back_translate(args):
 
     df = load_data('../dataset/train/train.csv')
     
+    file_time = f'{datetime.date(datetime.now())}.{str(datetime.time(datetime.now()))[:-7]}'
+    
     test_sentence = df.loc[:, 'sentence']
 
     if args.len is not False:
@@ -80,7 +83,7 @@ def back_translate(args):
         kor_trans_list = []
         papago_trans(test_sentence, 'ko', 'en', 0, seq_len, kor_trans_list, driver)
         kor_trans_list = list(map(lambda x: str(x), kor_trans_list))
-        np.save(data_path + 'kor_to_eng_final.npy', kor_trans_list)
+        np.save(f'./final_kor_to_eng_{file_time}.npy', kor_trans_list)
 
     if args.only_en_to_kor:
         if not args.only_kor_to_en:
@@ -88,7 +91,7 @@ def back_translate(args):
 
         en_trans_list = []
         papago_trans(kor_trans_list, 'en', 'ko', 0, seq_len, en_trans_list, driver)
-        np.save(data_path + 'en_to_kor_final.npy', en_trans_list)
+        np.save(f'./final_en_to_kor_{file_time}.npy', en_trans_list)
 
     if args.only_kor_to_en and args.only_en_to_kor:
         test_dict = {'kor_to_en': kor_trans_list, 'en_to_kor': en_trans_list, 'origin_text': test_sentence[:seq_len]}
