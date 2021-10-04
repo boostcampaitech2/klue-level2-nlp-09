@@ -20,13 +20,13 @@ def get_test_config():
     parser.add_argument('--tokenize_option', type=str, default='PUN',
                         help='token option ex) SUB, PUN')    
     parser.add_argument('--model_path', type=str, 
-                        default='/opt/ml/code/result/klue/roberta-large_kfold3_lstm_punc/checkpoint-3000/pytorch_model.bin',
+                        default='./result/klue/roberta-large_kfold4_lstm_punc_focal/checkpoint-2250/pytorch_model.bin',
                         help='model path')
     parser.add_argument('--test_path', type=str, 
                         default='/opt/ml/dataset/test/test_data.csv',
                         help='test csv path') 
     parser.add_argument('--save_path', type=str, 
-                        default='/opt/ml/code/prediction/submission_single_fold3_87.03.csv',
+                        default='./prediction/submission_single_focal_fold4.csv',
                         help='submission save path')                  
     args= parser.parse_args()
 

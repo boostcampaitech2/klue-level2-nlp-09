@@ -3,6 +3,7 @@
 *.git
 *.ipynb_checkpoints 
 *best_model**
+*result**
 *wandb
 *logs
 *prediction
@@ -12,4 +13,5 @@
 *nohup.out
 *.sh**
 *cew**
+*entity**
 

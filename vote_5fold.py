@@ -17,17 +17,16 @@ def to_nparray(s):
     return np.array(list(map(float, s[1:-1].split(","))))
 
 
-dir = "/opt/ml/"
-path1 = f"./prediction/submission_lstm_spc-char-1-fold0.csv"  # 가져올 csv 파일 주소 입력 필수!
-path2 = f"./prediction/submission_lstm_spc-char-1-fold1.csv"
-path3 = f"./prediction/submission_lstm_spc-char-1-fold2.csv"
-path4 = f"./prediction/submission_lstm_spc-char-1-fold3.csv"
-path5 = f"./prediction/submission_lstm_spc-char-1-fold4.csv"
+path1 = f"./prediction/submission_single_focal_fold0.csv"  # 가져올 csv 파일 주소 입력 필수!
+path2 = f"./prediction/submission_single_focal_fold1.csv"
+path3 = f"./prediction/submission_single_focal_fold2.csv"
+path4 = f"./prediction/submission_single_focal_fold3.csv"
+path5 = f"./prediction/submission_single_focal_fold4.csv"
 
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--finalcsv_dir', type=str, default = './prediction/submission_kfold5.csv', help='save_dir for each fold\'s logits csv')
+parser.add_argument('--finalcsv_dir', type=str, default = './prediction/submission_kfold5_focal.csv', help='save_dir for each fold\'s logits csv')
 
 
 args =parser.parse_args()

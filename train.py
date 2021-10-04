@@ -4,15 +4,37 @@ from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments, E
 import argparse
 import random
 import argparse
-
 import sklearn
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
-
-
 import wandb
 from dataset import *
 from model import *
+from aeda import *
+
+
+class Custom_Trainer(Trainer):
+    def __init__(self, loss_name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.loss_name = loss_name
+
+    def compute_loss(self, model, inputs, return_outputs=False):
+        labels = inputs.pop("labels")
+        outputs = model(**inputs)
+        device = torch.device("cuda:0" if torch.cuda.is_available else "cpu:0")
+
+        if self.args.past_index >= 0:
+            self._past = outputs[self.args.past_index]
+
+        if self.loss_name == "CrossEntropyLoss":
+            custom_loss = torch.nn.CrossEntropyLoss().to(device)
+            loss = custom_loss(outputs["logits"], labels)
+
+        elif self.loss_name == "LabelSmoothLoss" and self.label_smoother is not None:
+            loss = self.label_smoother(outputs, labels)
+            loss = loss.to(device)
+
+        return (loss, outputs) if return_outputs else loss
 
 
 def seed_everything(seed):
@@ -28,14 +50,23 @@ def seed_everything(seed):
 def get_config():
     parser = argparse.ArgumentParser()
 
+    """path, model option"""
     parser.add_argument("--seed", type=int, default=42, help="random seed (default: 42)")
-    parser.add_argument("--train_path", type=str, default="/opt/ml/dataset/train/train_spc_char1.csv", help="train csv path (default: /opt/ml/dataset/train/train.csv")
+    parser.add_argument("--save_dir", type=str, default="./best_model/fold", help="model save dir path (default : ./best_model/fold)")
+    parser.add_argument("--wandb_path", type=str, default="aeda_punc_lstm", help="wandb graph, save_dir basic path (default: aeda_punc_lstm")
+    parser.add_argument(
+        "--train_path", type=str, default="/opt/ml/dataset/train/train50.csv", help="train csv path (default: /opt/ml/dataset/train/train_revised.csv"
+    )
     parser.add_argument("--tokenize_option", type=str, default="PUN", help="token option ex) SUB, PUN")
     parser.add_argument("--fold", type=int, default=5, help="fold (default: 5)")
     parser.add_argument("--model", type=str, default="klue/roberta-large", help="model type (default: klue/roberta-large)")
+    parser.add_argument("--loss", type=str, default="LB", help="LB: LabelSmoothing, CE: CrossEntropy")
+
+    """hyperparameter"""
     parser.add_argument("--epochs", type=int, default=5, help="number of epochs to train (default: 5)")
     parser.add_argument("--lr", type=float, default=1e-5, help="learning rate (default: 1e-5)")
     parser.add_argument("--batch", type=int, default=32, help="input batch size for training (default: 32)")
+    parser.add_argument("--gradient_accum", type=int, default=2, help="gradient accumulation (default: 2)")
     parser.add_argument("--batch_valid", type=int, default=32, help="input batch size for validing (default: 32)")
     parser.add_argument("--warmup", type=int, default=0.1, help="warmup_ratio (default: 0.1)")
     parser.add_argument("--eval_steps", type=int, default=250, help="eval_steps (default: 250)")
@@ -43,7 +74,7 @@ def get_config():
     parser.add_argument("--logging_steps", type=int, default=50, help="logging_steps (default: 50)")
     parser.add_argument("--weight_decay", type=float, default=0.01, help="weight_decay (default: 0.01)")
     parser.add_argument("--metric_for_best_model", type=str, default="micro f1 score", help="metric_for_best_model (default: micro f1 score")
-    parser.add_argument("--loss", type=str, default='FocalLoss', help="loss function (default: 0.01)")
+
     args = parser.parse_args()
 
     return args
@@ -94,6 +125,7 @@ def klue_re_micro_f1(preds, labels):
 def klue_re_auprc(probs, labels):
     """KLUE-RE AUPRC (with no_relation)"""
     labels = np.eye(30)[labels]
+
     score = np.zeros((30,))
     for c in range(30):
         targets_c = labels.take([c], axis=1).ravel()
@@ -109,14 +141,13 @@ def compute_metrics(pred):
     preds = pred.predictions.argmax(-1)
     probs = pred.predictions
 
-    # calculate accuracy using sklearn's function
     f1 = klue_re_micro_f1(preds, labels)
     auprc = klue_re_auprc(probs, labels)
-    acc = accuracy_score(labels, preds)  # 리더보드 평가에는 포함되지 않습니다.
+    acc = accuracy_score(labels, preds)
 
     return {
         "micro f1 score": f1,
-        "normal f1": sklearn.metrics.f1_score(labels, preds, average="micro") * 100.0,
+        "normal f1": f1_score(labels, preds, average="micro") * 100,
         "auprc": auprc,
         "accuracy": acc,
     }
@@ -133,9 +164,10 @@ def train(args):
     all_dataset = preprocess.data
     all_label = all_dataset["label"].values
 
-    kfold = StratifiedKFold(n_splits=args.fold, shuffle=True, random_state=args.seed)
+    kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     for fold, (train_idx, val_idx) in enumerate(kfold.split(all_dataset, all_label)):
-        run = wandb.init(project="klue", entity="quarter100", name=f"lstm_punc_add_type_single_sc1/{fold}")
+        run = wandb.init(project="klue", entity="quarter100", name=f"KFOLD_{fold}_{args.wandb_path}")
+
         print(f"fold: {fold} start!")
 
         # load dataset
@@ -145,11 +177,14 @@ def train(args):
         train_label = preprocess.label_to_num(train_dataset["label"].values)
         val_label = preprocess.label_to_num(val_dataset["label"].values)
 
-         # tokenizing dataset
+        # data augmentation (AEDA)
+        train_dataset, train_label = start_aeda(train_dataset, train_label)
+
+        # tokenizing dataset
         tokenized_train, token_size = preprocess.tokenized_dataset(train_dataset, tokenizer)
         tokenized_val, _ = preprocess.tokenized_dataset(val_dataset, tokenizer)
 
-         # make dataset for pytorch.
+        # make dataset for pytorch.
         trainset = Dataset(tokenized_train, train_label)
         valset = Dataset(tokenized_val, val_label)
 
@@ -157,10 +192,12 @@ def train(args):
         model.model.resize_token_embeddings(tokenizer.vocab_size + token_size)
         model.to(device)
 
-        save_dir = f"./result/{args.model}_kfold{fold}_lstm_punc_single"
+        save_dir = f"./result/KFOLD_{fold}_{args.wandb_path}"
+
         training_args = TrainingArguments(
             output_dir=save_dir,
-            save_total_limit=2,
+            save_total_limit=1,
+            # gradient_accumulation_steps= args.gradient_accum,
             save_steps=args.save_steps,
             num_train_epochs=args.epochs,
             learning_rate=args.lr,
@@ -178,17 +215,31 @@ def train(args):
             load_best_model_at_end=True,
         )
 
-        trainer = Trainer(
-            model=model,
-            args=training_args,
-            train_dataset=trainset,
-            eval_dataset=valset,
-            compute_metrics=compute_metrics,
-            callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
-        )
+        if args.loss == "LB":
+            trainer = Trainer(
+                model=model,
+                args=training_args,
+                train_dataset=trainset,
+                eval_dataset=valset,
+                compute_metrics=compute_metrics,
+                callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
+            )
 
+        elif args.loss == "CE":
+            trainer = Custom_Trainer(
+                model=model,  # the instantiated 🤗 Transformers model to be trained
+                args=training_args,  # training arguments, defined above
+                train_dataset=trainset,  # training dataset
+                eval_dataset=valset,  # evaluation dataset
+                compute_metrics=compute_metrics,  # define metrics function
+                callbacks=[EarlyStoppingCallback(early_stopping_patience=3)],
+                loss_name="CrossEntropyLoss",
+            )
+
+        # train model
         trainer.train()
-        run.finish()
+        run.finish()  # finish wandb
+        print(f"fold{fold} fin!")
 
 
 if __name__ == "__main__":
