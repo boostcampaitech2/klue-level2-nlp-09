@@ -86,7 +86,7 @@ def tokenized_dataset(dataset, tokenizer):
     concat_entity = []
     for e01, e02, t01, t02 in zip(dataset['subject_entity'], dataset['object_entity'], dataset['subject_type'], dataset['object_type']):
         temp = '@*' + t01 + '*' + e01 + '@' + '와' + \
-            '#^' + t02 + '^' + e02 + '#' + '의 관계는 무엇일까?'
+            '#^' + t02 + '^' + e02 + '#' + '의 관계'
         concat_entity.append(temp)
 
     tokenized_sentences = tokenizer(
