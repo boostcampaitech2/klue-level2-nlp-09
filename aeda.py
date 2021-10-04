@@ -5,10 +5,10 @@ from tqdm import tqdm
 """
 JVMNotFoundException 발생시 https://github.com/boostcampaitech2/klue-level2-nlp-09/issues/80 참고
 """
-aeda = AEDA(morpheme_analyzer="Okt", punc_ratio=0.2, punctuations=[".", ",", "!", "?", ";", ":"])  # "Okt", "Kkma", "Komoran", "Mecab", "Hannanum"
 
 
-def make_new_text(sentence, subject_entity, object_entity):
+def make_new_text(sentence, subject_entity, object_entity, punc_ratio):
+    aeda = AEDA(morpheme_analyzer="Okt", punc_ratio=punc_ratio, punctuations=[".", ",", "!", "?", ";", ":"])
     while True:
         new_sentence = aeda(sentence)
         # subject, object entity가 깨지지 않는 문장만 생성
@@ -46,6 +46,14 @@ def start_aeda(train_df, train_label):
         # dataframe에서 문장만 찾음
         sentence = train_df.iloc[i]["sentence"]
 
+        # 문장에 따라 aeda punc_ratio 다르게 설정
+        if len(sentence) <= 150:
+            punc_ratio = 0.3
+        elif len(sentence) <= 300:
+            punc_ratio = 0.15
+        else:
+            punc_ratio = 0.05
+
         # @, # 안에 있는 것을 찾음 ex: #^PER^조지 해리슨# , @*ORG*비틀즈@
         subject_entity = "@" + sentence.split("@")[1] + "@"
         object_entity = "#" + sentence.split("#")[1] + "#"
@@ -53,12 +61,12 @@ def start_aeda(train_df, train_label):
         # 논문 기준 2번정도가 안전하다고 판단하여 2번 더 추가(3배로 늘림)
         # 원본 문장과 같아선 안됨
         while True:
-            new_sentence = make_new_text(sentence, subject_entity, object_entity)
+            new_sentence = make_new_text(sentence, subject_entity, object_entity, punc_ratio)
             if new_sentence != sentence:
                 break
         # 2번 문장이 원본, 1번 문장과 같아서는 안됨
         while True:
-            new_sentence2 = make_new_text(sentence, subject_entity, object_entity)
+            new_sentence2 = make_new_text(sentence, subject_entity, object_entity, punc_ratio)
             if new_sentence2 != sentence and new_sentence2 != new_sentence:
                 break
 
