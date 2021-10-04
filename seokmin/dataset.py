@@ -19,6 +19,7 @@ class Preprocess:
         sub_idx, obj_idx= [], []
         sentence= []
 
+        """preprocess"""
         for i, [x, y, z] in enumerate(zip(data['subject_entity'], data['object_entity'], data['sentence'])):
             sub_typ= x[1:-1].split(':')[-1].split('\'')[-2]
             obj_typ= y[1:-1].split(':')[-1].split('\'')[-2]
@@ -42,6 +43,7 @@ class Preprocess:
             sub_type.append(sub_typ); sub_idx.append(sub_i)
             obj_type.append(obj_typ); obj_idx.append(obj_i)
             
+            """tokenize version"""
             if self.version== 'SUB':
                 if sub_i[0] < obj_i[0]:
                     z= z[:sub_i[0]] + '[SUB]'+ z[sub_i[0]: sub_i[1]+1] + '[/SUB]' + z[sub_i[1]+1:]
@@ -60,25 +62,21 @@ class Preprocess:
 
             sentence.append(z)
 
-        """special token과 type 추가한 데이터 프레임 생성"""
         df= pd.DataFrame({'id': data['id'], 'sentence' : sentence, 'subject_entity': sub_entity, 'object_entity': obj_entity,
                                 'subject_type': sub_type, 'object_type': obj_type, 'label': data['label'],
                                 'subject_idx': sub_idx, 'object_idx': obj_idx})
-
-        # check add [sub], [obj] token sentence
-        # for i in range(10):    
-        #     print(f"SUB : {df.loc[i]['subject_entity']}\nOBJ : {df.loc[i]['object_entity']}\nSENTENCE : {df.loc[i]['sentence']}\n\n")
         
         return df
     
     def tokenized_dataset(self, data, tokenizer):
-        """add tokens"""
+
+        """add token list"""
         tokens= ['PER', 'LOC', 'POH', 'DAT', 'NOH', 'ORG']
         tokenizer.add_tokens(tokens)     
 
         concat_entity = []
         for sub_ent, obj_ent, sub_typ, obj_typ in zip(data['subject_entity'], data['object_entity'], data['subject_type'], data['object_type']):
-            temp =  '@*'+ sub_typ + '*' + sub_ent + '@와 #^' + obj_typ + '^' + obj_ent + '#의 관계'
+            temp =  '@*'+ sub_typ + '*' + sub_ent + '@와 #^' + obj_typ + '^' + obj_ent + '#의 관계는 무엇인가?'
             #temp =  e01 + '와' + e02 + '의 관계'
             concat_entity.append(temp)
 
@@ -91,22 +89,7 @@ class Preprocess:
             max_length= 256, # 토큰 최대 길이...
             add_special_tokens= True, # special token 추가
             return_token_type_ids= False # roberta의 경우.. token_type_ids가 안들어감 ! 
-        )   
-
-        """결국 모델에 들어가는 input은 tokenized된 문장들이다 !
-            tokenized_sentence에는 input_ids, token_type_ids, attention_mask가 있어야 model로 들어간다.
-            하지만 단순히 이렇게 tokenize한 데이터로 model에 들어가지 않는다 !
-            dataset으로 가공을 해줘야 한다.
-        """
-        # check decoded, tokenized token
-        # for i in range(10):
-        #     text_tok= tokenizer.tokenize(concat_entity[i],list(data['sentence'])[i], add_special_tokens=True)
-
-        #     text_enc= tokenizer.encode(concat_entity[i],list(data['sentence'])[i], add_special_tokens=True)
-        #     text_dec= tokenizer.decode(text_enc)
-        #     print(text_dec)
-        #     print(text_tok)
-        #     print()       
+        )    
 
         return tokenized_sentence, len(tokens)
     
@@ -121,19 +104,12 @@ class Preprocess:
         
         return num_label
 
-
-"""
-    기본적인 dataset은 init, getitem, len기능이 있어야 한다.
-    Dataset에 dict type으로 input_ids, attention_mask, labels를 넣어주는 느낌
-    이 때 label은 tensor type
-"""
-
+"""Train, Test Dataset"""
 class Dataset:
     def __init__(self, data, labels): # data : dict, label : list느낌..
         self.data= data
         self.labels= labels
     
-    """dict, list type의 input이 들어왔음.."""
     def __getitem__(self, idx):
         item = {key: val[idx].clone().detach() for key, val in self.data.items()}
         item['labels'] = torch.tensor(self.labels[idx])
@@ -142,25 +118,4 @@ class Dataset:
     
     def __len__(self):
         return len(self.labels)
-
-
-
-if __name__ == '__main__':
-    
-    TRAIN_PATH= '/opt/ml/dataset/train/train.csv'
-    MODEL_NAME= 'klue/roberta-large'
-
-    preprocess= Preprocess(TRAIN_PATH, "PUN")
-    tokenizer= AutoTokenizer.from_pretrained(MODEL_NAME)
-
-    # 아직 Dataset으로 가공을 하지 않았음 ! 단순히 dict와 List임
-    all_dataset= preprocess.data
-    # all_label= preprocess.label_to_num(all_dataset['label'].values)
-
-    tokenized_dataset= preprocess.tokenized_dataset(preprocess.data, tokenizer)
-
-    # RE_DATASET= Dataset(tokenized_dataset, all_label)
-    # print(RE_DATASET[3])
-
-
 

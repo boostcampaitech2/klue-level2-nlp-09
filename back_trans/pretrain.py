@@ -14,9 +14,6 @@ from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_sc
 from sklearn.model_selection import KFold
 from transformers import AutoTokenizer, AutoConfig, AutoModelForMaskedLM, Trainer, TrainingArguments, LineByLineTextDataset
 import transformers
-from load_data import *
-from focal_loss import *
-from MyTrainer import *
 from datetime import date
 import uuid
 
@@ -120,7 +117,7 @@ def train():
     )
     line_dataset = LineByLineTextDataset(
         tokenizer=tokenizer,
-        file_path="en_to_kor_final.txt",
+        file_path="../en_to_kor_final.txt",
         block_size=64,
     )
     line_dataset.examples = np.array(line_dataset.examples)
@@ -244,8 +241,8 @@ if __name__ == '__main__':
     parser.add_argument('--model', type=str, default='klue/roberta-large', help='model type (default: klue/roberta-large)')
     parser.add_argument('--epochs', type=int, default=10, help='number of epochs to train (default: 5)')
     parser.add_argument('--lr', type=float, default=3e-5, help='learning rate (default: 5e-5)')
-    parser.add_argument('--batch', type=int, default=16, help='input batch size for training (default: 16)')
-    parser.add_argument('--batch_valid', type=int, default=16, help='input batch size for validing (default: 16)')
+    parser.add_argument('--batch', type=int, default=32, help='input batch size for training (default: 16)')
+    parser.add_argument('--batch_valid', type=int, default=32, help='input batch size for validing (default: 16)')
     parser.add_argument('--warmup', type=int, default=812, help='warmup_steps (default: 200)')
     parser.add_argument('--eval_steps', type=int, default=100, help='eval_steps (default: 406)')
     parser.add_argument('--save_steps', type=int, default=100, help='save_steps (default: 406)')
