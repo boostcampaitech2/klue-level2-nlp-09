@@ -114,7 +114,9 @@ def compute_metrics(pred):
 
 def easy_data_augmentation(dataset):
     """random swap"""
-    return random_swap(dataset)
+    dataset = random_swap(dataset,0.3)
+    dataset = random_delete(dataset,0.3)
+    return dataset
     """random delete"""
 
 def train(args):
