@@ -7,7 +7,7 @@ from tqdm.auto import tqdm
 import time
 import numpy as np
 import argparse
-from load_data import *
+import pandas as pd
 
 from urllib.request import urlopen
 import json
@@ -61,6 +61,10 @@ def remove_stop_words(s):
         s = s.replace(w, '')
         ''.join(s)
     return s
+
+def load_data(path):
+    pd_dataset = pd.read_csv(path)
+    return pd_dataset
 
 def back_translate(args):
     driver = chrome_setting()
