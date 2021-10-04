@@ -32,7 +32,11 @@ def append_new_sentence(new_df, train_df, i, sentence):
     ]
 
 
-def start_aeda(train_df, train_label):
+def start_aeda(train_df, train_label, num_aeda):
+    # num_aeda 체크
+    if num_aeda == 0 or num_aeda > 2:
+        assert (False, "num_aeda must be 1 or 2")
+
     # index reset
     train_df = train_df.reset_index(drop=True)
 
@@ -58,23 +62,26 @@ def start_aeda(train_df, train_label):
         subject_entity = "@" + sentence.split("@")[1] + "@"
         object_entity = "#" + sentence.split("#")[1] + "#"
 
-        # 논문 기준 2번정도가 안전하다고 판단하여 2번 더 추가(3배로 늘림)
         # 원본 문장과 같아선 안됨
         while True:
             new_sentence = make_new_text(sentence, subject_entity, object_entity, punc_ratio)
             if new_sentence != sentence:
                 break
-        # 2번 문장이 원본, 1번 문장과 같아서는 안됨
-        while True:
-            new_sentence2 = make_new_text(sentence, subject_entity, object_entity, punc_ratio)
-            if new_sentence2 != sentence and new_sentence2 != new_sentence:
-                break
+
+        # 논문 기준 2번정도가 안전하다고 판단하여 2번 더 추가(3배로 늘림), but aug생성만 40분 걸립니다 ㅠㅠ
+        if num_aeda == 2:
+            # 2번 문장이 원본, 1번 문장과 같아서는 안됨
+            while True:
+                new_sentence2 = make_new_text(sentence, subject_entity, object_entity, punc_ratio)
+                if new_sentence2 != sentence and new_sentence2 != new_sentence:
+                    break
 
         # 새로 생성된 문장과 문장 정보를 dataframe에 추가 (2번)
         append_new_sentence(new_df, train_df, i, new_sentence)
-        append_new_sentence(new_df, train_df, i, new_sentence2)
+        if num_aeda == 2:
+            append_new_sentence(new_df, train_df, i, new_sentence2)
 
-        for _ in range(2):
+        for _ in range(num_aeda):
             new_label.append(train_label[i])
 
     # train dataframe 뒷단에 새로운 dataframe 합치기
