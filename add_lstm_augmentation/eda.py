@@ -25,12 +25,13 @@ def random_delete(dataset, p):
             sen=sen.replace(tmp_sub,'@')
             sen=sen.replace(tmp_obj,'#')
             is_delete = False
+            words = sen.split()
             while is_delete == False:
-                delete_idx = random.randint(0,len(sen)-1)
-                if sen[delete_idx] != '@' and sen[delete_idx] != '#':
+                delete_idx = random.randint(0,len(words)-1)
+                if words[delete_idx] != '@' and words[delete_idx] != '#':
                     is_delete=True
-                    tmp_del_word=sen[delete_idx]
-                    sen=sen.replace(tmp_del_word,"")
+                    del words[delete_idx]
+                    sen=" ".join(words)
                     sen=sen.replace('@',tmp_sub)
                     sen=sen.replace('#',tmp_obj)
                     new_sentence.append(sen)
