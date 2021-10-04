@@ -17,11 +17,11 @@ def random_delete(dataset, p):
             sub_start_idx = sen.find('@')
             sub_len = sub_idx[1]-sub_idx[0]+1
             tmp_sub = sen[sub_start_idx:sub_start_idx+sub_len]
-            print(tmp_sub)
+            
             obj_start_idx = sen.find('#')
             obj_len = obj_idx[1]-obj_idx[0]+1
             tmp_obj = sen[obj_start_idx:obj_start_idx+obj_len]
-            print(tmp_obj)
+            
             sen=sen.replace(tmp_sub,'@')
             sen=sen.replace(tmp_obj,'#')
             is_delete = False
@@ -35,8 +35,6 @@ def random_delete(dataset, p):
                     sen=sen.replace('#',tmp_obj)
                     new_sentence.append(sen)
 
-            print(sen)
-            sys.exit()
         else:
             new_sentence.append(sen)
 
