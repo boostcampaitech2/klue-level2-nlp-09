@@ -13,29 +13,6 @@ import wandb
 from dataset import *
 from model import *
 
-class Custom_Trainer(Trainer):
-    def __init__(self, loss_name, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.loss_name= loss_name
-    
-    def compute_loss(self, model, inputs, return_outputs= False):
-        labels= inputs.pop('labels')
-        outputs= model(**inputs)
-        device= torch.device('cuda:0' if torch.cuda.is_available else 'cpu:0')
-        
-        if self.args.past_index >=0:
-            self._past= outputs[self.args.past_index]
-
-        if self.loss_name== 'CrossEntropyLoss':
-            custom_loss= torch.nn.CrossEntropyLoss().to(device)
-            loss= custom_loss(outputs['logits'], labels)
-        
-        elif self.loss_name== 'LabelSmoothLoss' and self.label_smoother is not None:
-            loss= self.label_smoother(outputs, labels)
-            loss= loss.to(device)
-        
-        return (loss, outputs) if return_outputs else loss
-
 def seed_everything(seed):
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
@@ -54,7 +31,7 @@ def get_config():
                         help='random seed (default: 42)')
     parser.add_argument('--save_dir', type=str, default = './best_model/fold', 
                         help='model save dir path (default : ./best_model/fold)')
-    parser.add_argument('--wandb_path', type= str, default= 'sm_kr_punc_lstm',
+    parser.add_argument('--wandb_path', type= str, default= 'sm_kr_punc_lstm_add_token',
                         help='wandb graph, save_dir basic path (default: sm_kr_punc_lstm') 
     parser.add_argument('--train_path', type= str, default= '/opt/ml/dataset/train/train.csv',
                         help='train csv path (default: /opt/ml/dataset/train/train.csv')
@@ -97,6 +74,29 @@ def get_config():
     args= parser.parse_args()
 
     return args
+
+class Custom_Trainer(Trainer):
+    def __init__(self, loss_name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.loss_name= loss_name
+    
+    def compute_loss(self, model, inputs, return_outputs= False):
+        labels= inputs.pop('labels')
+        outputs= model(**inputs)
+        device= torch.device('cuda:0' if torch.cuda.is_available else 'cpu:0')
+        
+        if self.args.past_index >=0:
+            self._past= outputs[self.args.past_index]
+
+        if self.loss_name== 'CrossEntropyLoss':
+            custom_loss= torch.nn.CrossEntropyLoss().to(device)
+            loss= custom_loss(outputs['logits'], labels)
+        
+        elif self.loss_name== 'LabelSmoothLoss' and self.label_smoother is not None:
+            loss= self.label_smoother(outputs, labels)
+            loss= loss.to(device)
+        
+        return (loss, outputs) if return_outputs else loss
 
 def klue_re_micro_f1(preds, labels):
     """KLUE-RE micro f1 (except no_relation)"""
@@ -157,21 +157,21 @@ def train(args):
     all_dataset= preprocess.data
     all_label= all_dataset['label'].values
 
-    kfold = StratifiedKFold(n_splits= 5, shuffle= True, random_state= 42)
+    kfold= StratifiedKFold(n_splits= 5, shuffle= True, random_state= 42)
     for fold, (train_idx, val_idx) in enumerate(kfold.split(all_dataset, all_label)):
-        run = wandb.init(project='klue', entity='quarter100', name=f'KFOLD_{fold}_AL_{args.wandb_path}')
+        run= wandb.init(project= 'klue', entity= 'quarter100', name= f'KFOLD_{fold}_{args.wandb_path}')
         print(f'fold: {fold} start!')
-        train_dataset = all_dataset.iloc[train_idx]
-        val_dataset = all_dataset.iloc[val_idx]
+        train_dataset= all_dataset.iloc[train_idx]
+        val_dataset= all_dataset.iloc[val_idx]
 
-        train_label = preprocess.label_to_num(train_dataset['label'].values)
-        val_label = preprocess.label_to_num(val_dataset['label'].values)
+        train_label= preprocess.label_to_num(train_dataset['label'].values)
+        val_label= preprocess.label_to_num(val_dataset['label'].values)
 
-        tokenized_train, token_size = preprocess.tokenized_dataset(train_dataset, tokenizer)
-        tokenized_val, _ = preprocess.tokenized_dataset(val_dataset, tokenizer)
+        tokenized_train, token_size= preprocess.tokenized_dataset(train_dataset, tokenizer)
+        tokenized_val, _= preprocess.tokenized_dataset(val_dataset, tokenizer)
 
-        trainset = Dataset(tokenized_train, train_label)
-        valset = Dataset(tokenized_val, val_label)
+        trainset= Dataset(tokenized_train, train_label)
+        valset= Dataset(tokenized_val, val_label)
 
         model = Model(args.model, args.pretrain)
         model.model.resize_token_embeddings(tokenizer.vocab_size + token_size)
@@ -197,7 +197,7 @@ def train(args):
             evaluation_strategy= 'steps',
             group_by_length= True,
             eval_steps= args.eval_steps,
-            load_best_model_at_end=True,
+            load_best_model_at_end=True
         )
 
         if args.loss== 'LB':
@@ -222,9 +222,9 @@ def train(args):
             )
 
         trainer.train()
-        # if not os.path.exists(f'{args.save_dir}_{fold}'):
-        #     os.makedirs(f'{args.save_dir}_{fold}')
-        # torch.save(model.stat_dict(), os.path.join(f'{args.save_dir}_{fold}', 'pytorch_model.bin'))
+        if not os.path.exists(f'{args.save_dir}_{fold}'):
+            os.makedirs(f'{args.save_dir}_{fold}')
+        torch.save(model.state_dict(), os.path.join(f'{args.save_dir}_{fold}', 'pytorch_model.bin'))
         run.finish()
         print(f'fold{fold} fin!')
 

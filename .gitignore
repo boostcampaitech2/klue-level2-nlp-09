@@ -38,3 +38,5 @@ back_translation_result.csv
 en_to_kor_final.txt
 train_revised.csv
 pretrained_model/
+result/
+.DS_Store
