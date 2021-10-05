@@ -4,19 +4,52 @@ import torch.nn.functional as F
 from transformers import AutoModel, AutoConfig
 from torch.cuda.amp import autocast
 
-"""
-    pretrained된 BERT 가져와서 
-    이걸 거친 것을 LSTM에 넣어줄 것이다..
-    여기서 아이디어가.. LSTM    
-"""
+
+class BackTransPreTrain():
+    def __init__(self, path):
+        self.parameters = torch.load(path)
+
+    def load_parameters(self, model_name):
+        if model_name == 'klue/roberta-large':
+            remove_target = []
+
+            for k in self.parameters.keys():
+                if 'roberta' in k:
+                    remove_target.append(k)
+
+            print(len(remove_target))
+
+            for r in remove_target:
+                self.parameters[r[len('roberta') + 1:]] = self.parameters[r]
+                del self.parameters[r]
+
+            remove_key = [
+                'lm_head.bias',
+                'lm_head.dense.weight',
+                'lm_head.dense.bias',
+                'lm_head.layer_norm.weight',
+                'lm_head.layer_norm.bias'
+            ]
+
+            self.parameters['pooler.dense.weight'] = self.parameters['lm_head.dense.weight']
+            self.parameters['pooler.dense.bias'] = self.parameters['lm_head.dense.bias']
+
+            for k in remove_key:
+                 del self.parameters[k]
+
+            return self.parameters
 
 class Model(nn.Module):
-    def __init__(self, MODEL_NAME):
+    def __init__(self, MODEL_NAME, pretrain_path):
         super().__init__()
 
         self.model_config= AutoConfig.from_pretrained(MODEL_NAME)
         self.model_config.num_labels= 30
         self.model= AutoModel.from_pretrained(MODEL_NAME, config= self.model_config)
+        if pretrain_path != '':
+            bpt = BackTransPreTrain(pretrain_path)
+            self.model.load_state_dict(bpt.load_parameters(MODEL_NAME))
+
         self.hidden_dim= self.model_config.hidden_size # roberta hidden dim = 1024
 
         self.lstm= nn.LSTM(input_size= self.hidden_dim, hidden_size= self.hidden_dim, num_layers= 2, dropout= 0.2,

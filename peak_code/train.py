@@ -83,6 +83,8 @@ def get_config():
                         default=0.01, help='weight_decay (default: 0.01)')
     parser.add_argument('--metric_for_best_model', type=str, default='micro f1 score',
                         help='metric_for_best_model (default: micro f1 score')
+    parser.add_argument('--pretrain', type=str, default='',
+                        help='using customized pretrained model for adaptive learning')
     
     args= parser.parse_args()
 
@@ -150,7 +152,7 @@ def train(args):
 
     kfold= StratifiedKFold(n_splits= 5, shuffle= True, random_state= 42)
     for fold, (train_idx, val_idx) in enumerate(kfold.split(all_dataset, all_label)):
-        run= wandb.init(project= 'klue', entity= 'quarter100', name= f'sm_kr_kfold{fold}_CE_lstm_punc_add_type')
+        run= wandb.init(project= 'klue', entity= 'quarter100', name= f'AL_sm_kr_kfold{fold}_CE_lstm_punc_add_type')
         print(f'fold: {fold} start!')
         train_dataset= all_dataset.iloc[train_idx]
         val_dataset= all_dataset.iloc[val_idx]
@@ -164,7 +166,7 @@ def train(args):
         trainset= Dataset(tokenized_train, train_label)
         valset= Dataset(tokenized_val, val_label)
 
-        model= Model(args.model)
+        model= Model(args.model, args.pretrain)
         model.model.resize_token_embeddings(tokenizer.vocab_size + token_size)
         model.to(device)
 
