@@ -13,7 +13,6 @@ def num_to_label(n):
 def to_nparray(s) :
     return np.array(list(map(float, s[1:-1].split(','))))
 
-dir = '/opt/ml/'
 path1 = './prediction/submission0.csv' # 가져올 csv 파일 주소 입력 필수!
 path2 = './prediction/submission1.csv'
 path3 = './prediction/submission2.csv'
