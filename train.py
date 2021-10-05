@@ -13,30 +13,6 @@ from model import *
 from aeda import *
 
 
-class Custom_Trainer(Trainer):
-    def __init__(self, loss_name, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.loss_name = loss_name
-
-    def compute_loss(self, model, inputs, return_outputs=False):
-        labels = inputs.pop("labels")
-        outputs = model(**inputs)
-        device = torch.device("cuda:0" if torch.cuda.is_available else "cpu:0")
-
-        if self.args.past_index >= 0:
-            self._past = outputs[self.args.past_index]
-
-        if self.loss_name == "CrossEntropyLoss":
-            custom_loss = torch.nn.CrossEntropyLoss().to(device)
-            loss = custom_loss(outputs["logits"], labels)
-
-        elif self.loss_name == "LabelSmoothLoss" and self.label_smoother is not None:
-            loss = self.label_smoother(outputs, labels)
-            loss = loss.to(device)
-
-        return (loss, outputs) if return_outputs else loss
-
-
 def seed_everything(seed):
     random.seed(seed)
     os.environ["PYTHONHASHSEED"] = str(seed)
@@ -78,6 +54,30 @@ def get_config():
     args = parser.parse_args()
 
     return args
+
+
+class Custom_Trainer(Trainer):
+    def __init__(self, loss_name, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.loss_name = loss_name
+
+    def compute_loss(self, model, inputs, return_outputs=False):
+        labels = inputs.pop("labels")
+        outputs = model(**inputs)
+        device = torch.device("cuda:0" if torch.cuda.is_available else "cpu:0")
+
+        if self.args.past_index >= 0:
+            self._past = outputs[self.args.past_index]
+
+        if self.loss_name == "CrossEntropyLoss":
+            custom_loss = torch.nn.CrossEntropyLoss().to(device)
+            loss = custom_loss(outputs["logits"], labels)
+
+        elif self.loss_name == "LabelSmoothLoss" and self.label_smoother is not None:
+            loss = self.label_smoother(outputs, labels)
+            loss = loss.to(device)
+
+        return (loss, outputs) if return_outputs else loss
 
 
 def klue_re_micro_f1(preds, labels):
@@ -238,9 +238,9 @@ def train(args):
 
         # train model
         trainer.train()
-        if not os.path.exists(f'{args.save_dir}_{fold}'):
-            os.makedirs(f'{args.save_dir}_{fold}')
-        torch.save(model.state_dict(), os.path.join(f'{args.save_dir}_{fold}', 'pytorch_model.bin'))
+        if not os.path.exists(f"{args.save_dir}_{fold}"):
+            os.makedirs(f"{args.save_dir}_{fold}")
+        torch.save(model.state_dict(), os.path.join(f"{args.save_dir}_{fold}", "pytorch_model.bin"))
         run.finish()  # finish wandb
         print(f"fold{fold} fin!")
 
