@@ -238,6 +238,9 @@ def train(args):
 
         # train model
         trainer.train()
+        if not os.path.exists(f'{args.save_dir}_{fold}'):
+            os.makedirs(f'{args.save_dir}_{fold}')
+        torch.save(model.state_dict(), os.path.join(f'{args.save_dir}_{fold}', 'pytorch_model.bin'))
         run.finish()  # finish wandb
         print(f"fold{fold} fin!")
 

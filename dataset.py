@@ -89,7 +89,7 @@ class Preprocess:
 
         concat_entity = []
         for sub_ent, obj_ent, sub_typ, obj_typ in zip(data["subject_entity"], data["object_entity"], data["subject_type"], data["object_type"]):
-            temp = "@*" + sub_typ + "*" + sub_ent + "@와 #^" + obj_typ + "^" + obj_ent + "#의 관계는 무엇인가?"
+            temp = "@*" + sub_typ + "*" + sub_ent + "@와 #^" + obj_typ + "^" + obj_ent + "#의 관계"
             # temp =  e01 + '와' + e02 + '의 관계'
             concat_entity.append(temp)
 

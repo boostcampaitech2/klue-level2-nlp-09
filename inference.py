@@ -20,13 +20,13 @@ def get_test_config():
     parser.add_argument('--tokenize_option', type=str, default='PUN',
                         help='token option ex) SUB, PUN')    
     parser.add_argument('--model_path', type=str, 
-                        default='./result/klue/roberta-large_kfold4_lstm_punc_focal/checkpoint-2250/pytorch_model.bin',
+                        default='./result/KFOLD_0_aeda_punc_lstm/checkpoint-4000/pytorch_model.bin',
                         help='model path')
     parser.add_argument('--test_path', type=str, 
                         default='/opt/ml/dataset/test/test_data.csv',
                         help='test csv path') 
     parser.add_argument('--save_path', type=str, 
-                        default='./prediction/submission_single_focal_fold4.csv',
+                        default='./prediction/submission_sm_aeda_fold0.csv',
                         help='submission save path')                  
     args= parser.parse_args()
 
@@ -44,10 +44,11 @@ def inference(model, tokenized_data, device, args):
                 attention_mask= data['attention_mask'].to(device)
             )
         logits= outputs['logits']
+        
         prob = F.softmax(logits, dim=-1).detach().cpu().numpy()
         logits= logits.detach().cpu().numpy()
         # prob= logits
-
+        #logits += np.array([0.1] + [0]*29)
         result= np.argmax(logits, axis= -1)
 
         output_pred.append(result)
