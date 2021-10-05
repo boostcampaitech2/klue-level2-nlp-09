@@ -29,7 +29,7 @@ def get_config():
     """path, model option"""
     parser.add_argument("--seed", type=int, default=42, help="random seed (default: 42)")
     parser.add_argument("--save_dir", type=str, default="./best_model/fold", help="model save dir path (default : ./best_model/fold)")
-    parser.add_argument("--wandb_path", type=str, default="aeda_punc_lstm", help="wandb graph, save_dir basic path (default: aeda_punc_lstm")
+    parser.add_argument("--wandb_path", type=str, default="aeda_outsampling_punc_lstm", help="wandb graph, save_dir basic path (default: aeda_punc_lstm")
     parser.add_argument(
         "--train_path", type=str, default="/opt/ml/dataset/train/train_revised.csv", help="train csv path (default: /opt/ml/dataset/train/train_revised.csv"
     )
@@ -50,7 +50,6 @@ def get_config():
     parser.add_argument("--logging_steps", type=int, default=50, help="logging_steps (default: 50)")
     parser.add_argument("--weight_decay", type=float, default=0.01, help="weight_decay (default: 0.01)")
     parser.add_argument("--metric_for_best_model", type=str, default="micro f1 score", help="metric_for_best_model (default: micro f1 score")
-    parser.add_argument("--aeda", type=int, default=1, help="number of aeda (default: 1)")
     args = parser.parse_args()
 
     return args
@@ -166,7 +165,7 @@ def train(args):
 
     kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
     for fold, (train_idx, val_idx) in enumerate(kfold.split(all_dataset, all_label)):
-        run = wandb.init(project="klue", entity="quarter100", name=f"KFOLD_{fold}_{args.wandb_path}")
+        # run = wandb.init(project="klue", entity="quarter100", name=f"KFOLD_{fold}_{args.wandb_path}")
 
         print(f"fold: {fold} start!")
 
@@ -178,7 +177,7 @@ def train(args):
         val_label = preprocess.label_to_num(val_dataset["label"].values)
 
         # data augmentation (AEDA)
-        train_dataset, train_label = start_aeda(train_dataset, train_label, args.aeda)
+        train_dataset, train_label = start_aeda(train_dataset, train_label)
 
         # tokenizing dataset
         tokenized_train, token_size = preprocess.tokenized_dataset(train_dataset, tokenizer)

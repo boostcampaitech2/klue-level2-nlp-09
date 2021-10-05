@@ -1,14 +1,54 @@
 from koeda import AEDA
 import pandas as pd
 from tqdm import tqdm
+import random
 
 """
 JVMNotFoundException 발생시 https://github.com/boostcampaitech2/klue-level2-nlp-09/issues/80 참고
 """
 
+SPACE_TOKEN = "\u241F"
+
+
+def replace_space(text: str) -> str:
+    return text.replace(" ", SPACE_TOKEN)
+
+
+def revert_space(text: list) -> str:
+    clean = " ".join("".join(text).replace(SPACE_TOKEN, " ").split()).strip()
+    return clean
+
+
+# 속도 수정된 aeda
+class myAEDA(AEDA):
+    def _aeda(self, data: str, p: float) -> str:
+        if p is None:
+            p = self.ratio
+
+        split_words = self.morpheme_analyzer.morphs(replace_space(data))
+        words = self.morpheme_analyzer.morphs(data)
+
+        new_words = []
+        q = random.randint(1, int(p * len(words) + 1))
+        qs_list = [index for index in range(len(split_words)) if split_words[index] != SPACE_TOKEN]
+        qs = random.sample(qs_list, q)
+
+        for j, word in enumerate(split_words):
+            if j in qs:
+                new_words.append(SPACE_TOKEN)
+                new_words.append(self.punctuations[random.randint(0, len(self.punctuations) - 1)])
+                new_words.append(SPACE_TOKEN)
+                new_words.append(word)
+            else:
+                new_words.append(word)
+
+        augmented_sentences = revert_space(new_words)
+
+        return augmented_sentences
+
 
 def make_new_text(sentence, subject_entity, object_entity, punc_ratio):
-    aeda = AEDA(morpheme_analyzer="Okt", punc_ratio=punc_ratio, punctuations=[".", ",", "!", "?", ";", ":"])
+    aeda = myAEDA(morpheme_analyzer="Okt", punc_ratio=punc_ratio, punctuations=[".", ",", "!", "?", ";", ":"])
     while True:
         new_sentence = aeda(sentence)
         # subject, object entity가 깨지지 않는 문장만 생성
@@ -32,10 +72,22 @@ def append_new_sentence(new_df, train_df, i, sentence):
     ]
 
 
-def start_aeda(train_df, train_label, num_aeda):
-    # num_aeda 체크
-    if num_aeda == 0 or num_aeda > 2:
-        assert (False, "num_aeda must be 1 or 2")
+def start_aeda(train_df, train_label):
+
+    # 늘릴 label 설정
+    """NOTE
+    label 개수 100 미만: 8배
+    label 개수 100~200 미만: 4배
+    """
+    label_x8 = [
+        "org:political/religious_affiliation",
+        "per:religion",
+        "per:schools_attended",
+        "org:dissolved",
+        "org:number_of_employees/members",
+        "per:place_of_death",
+    ]
+    label_x4 = ["per:place_of_residence", "per:other_family", "per:place_of_birth", "org:founded_by", "per:product"]
 
     # index reset
     train_df = train_df.reset_index(drop=True)
@@ -47,41 +99,43 @@ def start_aeda(train_df, train_label, num_aeda):
     new_label = []
 
     for i in tqdm(range(len(train_df)), desc="augmentation..."):
+        # class 확인하여 augmentation 필요한 문장인지 확인
+        check_class = train_df.iloc[i]["label"]
+        if check_class in label_x8:
+            check_num = 8
+        elif check_class in label_x4:
+            check_num = 4
+        else:
+            continue
+        print(check_num)
+
         # dataframe에서 문장만 찾음
         sentence = train_df.iloc[i]["sentence"]
 
-        # 문장에 따라 aeda punc_ratio 다르게 설정
+        # 문장 길이에 따라 aeda punc_ratio 다르게 설정
         if len(sentence) <= 150:
-            punc_ratio = 0.3
+            punc_ratio = 0.2
         elif len(sentence) <= 300:
-            punc_ratio = 0.15
+            punc_ratio = 0.25
         else:
-            punc_ratio = 0.05
+            punc_ratio = 0.3
 
         # @, # 안에 있는 것을 찾음 ex: #^PER^조지 해리슨# , @*ORG*비틀즈@
         subject_entity = "@" + sentence.split("@")[1] + "@"
         object_entity = "#" + sentence.split("#")[1] + "#"
 
-        # 원본 문장과 같아선 안됨
+        # 새로운 문장 생성
+        sentence_list = set([sentence])
         while True:
             new_sentence = make_new_text(sentence, subject_entity, object_entity, punc_ratio)
-            if new_sentence != sentence:
+            sentence_list.add(new_sentence)
+            # sentence 포함하여 4/8개 이상이 되면
+            if len(sentence_list) >= check_num:
                 break
 
-        # 논문 기준 2번정도가 안전하다고 판단하여 2번 더 추가(3배로 늘림), but aug생성만 40분 걸립니다 ㅠㅠ
-        if num_aeda == 2:
-            # 2번 문장이 원본, 1번 문장과 같아서는 안됨
-            while True:
-                new_sentence2 = make_new_text(sentence, subject_entity, object_entity, punc_ratio)
-                if new_sentence2 != sentence and new_sentence2 != new_sentence:
-                    break
-
-        # 새로 생성된 문장과 문장 정보를 dataframe에 추가 (2번)
-        append_new_sentence(new_df, train_df, i, new_sentence)
-        if num_aeda == 2:
-            append_new_sentence(new_df, train_df, i, new_sentence2)
-
-        for _ in range(num_aeda):
+        # 새로 생성된 문장과 문장 정보를 dataframe에 추가
+        for s in sentence_list:
+            append_new_sentence(new_df, train_df, i, s)
             new_label.append(train_label[i])
 
     # train dataframe 뒷단에 새로운 dataframe 합치기
