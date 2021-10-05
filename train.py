@@ -29,7 +29,7 @@ def get_config():
     """path, model option"""
     parser.add_argument("--seed", type=int, default=42, help="random seed (default: 42)")
     parser.add_argument("--save_dir", type=str, default="./best_model/fold", help="model save dir path (default : ./best_model/fold)")
-    parser.add_argument("--wandb_path", type=str, default="aeda_outsampling_punc_lstm", help="wandb graph, save_dir basic path (default: aeda_punc_lstm")
+    parser.add_argument("--wandb_path", type=str, default="aeda_oversampling_punc_lstm", help="wandb graph, save_dir basic path (default: aeda_punc_lstm")
     parser.add_argument(
         "--train_path", type=str, default="/opt/ml/dataset/train/train_revised.csv", help="train csv path (default: /opt/ml/dataset/train/train_revised.csv"
     )
