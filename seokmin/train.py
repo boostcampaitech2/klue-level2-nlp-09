@@ -159,7 +159,7 @@ def train(args):
 
     kfold= StratifiedKFold(n_splits= 5, shuffle= True, random_state= 42)
     for fold, (train_idx, val_idx) in enumerate(kfold.split(all_dataset, all_label)):
-        run= wandb.init(project= 'klue', entity= 'quarter100', name= f'KFOLD_{fold}_{args.wandb_path}')
+        run= wandb.init(project= 'klue', entity= 'quarter100', name= f'KFOLD_{fold}_AL{args.wandb_path}')
         print(f'fold: {fold} start!')
         train_dataset= all_dataset.iloc[train_idx]
         val_dataset= all_dataset.iloc[val_idx]

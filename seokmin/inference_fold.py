@@ -34,6 +34,8 @@ def get_test_config():
     parser.add_argument('--test_path', type=str, 
                         default='/opt/ml/dataset/test/test_data.csv',
                         help='test csv path') 
+    parser.add_argument('--pretrain', type=str, default='',
+                        help='using customized pretrained model for adaptive learning')
 
     args= parser.parse_args()
 
@@ -101,7 +103,7 @@ def main_inference(args):
     df_list= []
     for i in range(args.kfold):
         print(f'KFOLD : {i} inference start !')
-        model= Model(args.model)
+        model= Model(args.model, args.pretrain)
         model.model.resize_token_embeddings(tokenizer.vocab_size + args.add_token)
 
         best_state_dict= torch.load(os.path.join(f'{args.model_path}_{i}', 'pytorch_model.bin'))
@@ -120,6 +122,7 @@ def main_inference(args):
         if not os.path.exists(args.save_dir):
             os.makedirs(args.save_dir)
         output.to_csv(os.path.join(args.save_dir, f'submission{i}.csv'), index= False)
+        df_list.append(output)
         
         print(f'KFOLD : {i} inference fin !')
 
