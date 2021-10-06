@@ -31,7 +31,7 @@ def get_config():
                         help='random seed (default: 42)')
     parser.add_argument('--save_dir', type=str, default = './best_model/fold', 
                         help='model save dir path (default : ./best_model/fold)')
-    parser.add_argument('--wandb_path', type= str, default= 'sm_kr_punc_lstm_add_token',
+    parser.add_argument('--wandb_path', type= str, default= 'sm_kr_punc_lstm_add_token_1e-5',
                         help='wandb graph, save_dir basic path (default: sm_kr_punc_lstm') 
     parser.add_argument('--train_path', type= str, default= '/opt/ml/dataset/train/train.csv',
                         help='train csv path (default: /opt/ml/dataset/train/train.csv')
