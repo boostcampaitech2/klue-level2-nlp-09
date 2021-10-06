@@ -107,7 +107,8 @@ def start_aeda(train_df, train_label, check_num):
             # sentence 포함하여 설정한 개수 이상이 되면
             if len(sentence_set) >= check_num:
                 break
-
+        sentence_set.remove(sentence)
+        
         # 새로 생성된 문장과 문장 정보를 dataframe에 추가
         for s in sentence_set:
             append_new_sentence(new_df, train_df, i, s)
