@@ -72,7 +72,22 @@ def append_new_sentence(new_df, train_df, i, sentence):
     ]
 
 
-def start_aeda(train_df, train_label, check_num):
+def start_aeda(train_df, train_label):
+
+    # 늘릴 label 설정
+    """NOTE
+    label 개수 100 미만: 8배
+    label 개수 100~200 미만: 4배
+    """
+    label_x8 = [
+        "org:political/religious_affiliation",
+        "per:religion",
+        "per:schools_attended",
+        "org:dissolved",
+        "org:number_of_employees/members",
+        "per:place_of_death",
+    ]
+    label_x4 = ["per:place_of_residence", "per:other_family", "per:place_of_birth", "org:founded_by", "per:product"]
 
     # index reset
     train_df = train_df.reset_index(drop=True)
@@ -84,6 +99,16 @@ def start_aeda(train_df, train_label, check_num):
     new_label = []
 
     for i in tqdm(range(len(train_df)), desc="augmentation..."):
+        # class 확인하여 augmentation 필요한 문장인지 확인
+        check_class = train_df.iloc[i]["label"]
+        if check_class in label_x8:
+            check_num = 8
+        elif check_class in label_x4:
+            check_num = 4
+        else:
+            continue
+        print(check_num)
+
         # dataframe에서 문장만 찾음
         sentence = train_df.iloc[i]["sentence"]
 
@@ -100,20 +125,20 @@ def start_aeda(train_df, train_label, check_num):
         object_entity = "#" + sentence.split("#")[1] + "#"
 
         # 새로운 문장 생성
-        sentence_set = set([sentence])
+        sentence_list = set([sentence])
         while True:
             new_sentence = make_new_text(sentence, subject_entity, object_entity, punc_ratio)
-            sentence_set.add(new_sentence)
-            # sentence 포함하여 설정한 개수 이상이 되면
-            if len(sentence_set) >= check_num:
+            sentence_list.add(new_sentence)
+            # sentence 포함하여 4/8개 이상이 되면
+            if len(sentence_list) >= check_num:
                 break
-        sentence_set.remove(sentence)
-        
+
         # 새로 생성된 문장과 문장 정보를 dataframe에 추가
-        for s in sentence_set:
+        for s in sentence_list:
             append_new_sentence(new_df, train_df, i, s)
             new_label.append(train_label[i])
-
+        sentence_list.remove(sentence)
+        
     # train dataframe 뒷단에 새로운 dataframe 합치기
     aug_df = train_df.append(new_df, ignore_index=True)
 
