@@ -126,17 +126,17 @@ def main_inference(args):
         
         print(f'KFOLD : {i} inference fin !')
 
-#     df_list[0]['probs']= 0.2* np.array(df_list[0]['probs'][1:-1].split(','))
-#     for i in range(1, args.fold):
-#         df_list[0]['probs']+= 0.2* np.array(df_list[i]['probs'][1:-1].split(','))
+    # df_list[0]['probs']= 0.2* np.array(df_list[0]['probs'][1:-1].split(','))
+    # for i in range(1, args.fold):
+    #     df_list[0]['probs']+= 0.2* np.array(df_list[i]['probs'][1:-1].split(','))
 
-#     for i in range(len(df_list['probs'])):
-#         df_list[0]['probs'][i] = F.softmax(torch.tensor(df_list[0]['probs'][i]), dim=0).detach().cpu().numpy() 
+    # for i in range(len(df_list['probs'])):
+    #     df_list[0]['probs'][i] = F.softmax(torch.tensor(df_list[0]['probs'][i]), dim=0).detach().cpu().numpy() 
 
-#     df_list[0]['pred_label'] = df_list[0]['probs'].apply(lambda x : num_to_label(np.argmax(x)))
-#     df_list[0]['probs'] = df_list[0]['probs'].apply(lambda x : str(list(x)))
+    # df_list[0]['pred_label'] = df_list[0]['probs'].apply(lambda x : num_to_label(np.argmax(x)))
+    # df_list[0]['probs'] = df_list[0]['probs'].apply(lambda x : str(list(x)))
 
-#     df_list[0].to_csv(os.path.join(args.save_dir, 'submission_kfold.csv'), index= False)
+    # df_list[0].to_csv(os.path.join(args.save_dir, 'submission_kfold.csv'), index= False)
 
     print('FIN')
 
