@@ -117,7 +117,7 @@ def main_inference(args):
 
         if not os.path.exists(args.save_dir):
             os.makedirs(args.save_dir)
-        output.to_csv(os.path.join(args.save_dir, f"submission{i}.csv"), index=False)
+        output.to_csv(os.path.join(args.save_dir, f"submission{i}_aeda_oversampling.csv"), index=False)
 
         print(f"KFOLD : {i} inference fin !")
 

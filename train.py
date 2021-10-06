@@ -29,9 +29,9 @@ def get_config():
     """path, model option"""
     parser.add_argument("--seed", type=int, default=42, help="random seed (default: 42)")
     parser.add_argument("--save_dir", type=str, default="./best_model/fold", help="model save dir path (default : ./best_model/fold)")
-    parser.add_argument("--wandb_path", type=str, default="aeda_oversampling_punc_lstm", help="wandb graph, save_dir basic path (default: aeda_punc_lstm")
+    parser.add_argument("--wandb_path", type=str, default="aeda2_punc_lstm_org_dt", help="wandb graph, save_dir basic path (default: aeda_punc_lstm")
     parser.add_argument(
-        "--train_path", type=str, default="/opt/ml/dataset/train/train_revised.csv", help="train csv path (default: /opt/ml/dataset/train/train_revised.csv"
+        "--train_path", type=str, default="/opt/ml/dataset/train/train_revised.csv", help="train csv path (default: /opt/ml/dataset/train/train.csv"
     )
     parser.add_argument("--tokenize_option", type=str, default="PUN", help="token option ex) SUB, PUN")
     parser.add_argument("--fold", type=int, default=5, help="fold (default: 5)")
@@ -50,6 +50,8 @@ def get_config():
     parser.add_argument("--logging_steps", type=int, default=50, help="logging_steps (default: 50)")
     parser.add_argument("--weight_decay", type=float, default=0.01, help="weight_decay (default: 0.01)")
     parser.add_argument("--metric_for_best_model", type=str, default="micro f1 score", help="metric_for_best_model (default: micro f1 score")
+    parser.add_argument("--aeda", type=int, default=2, help="aeda num (default: 2")
+
     args = parser.parse_args()
 
     return args
@@ -177,7 +179,7 @@ def train(args):
         val_label = preprocess.label_to_num(val_dataset["label"].values)
 
         # data augmentation (AEDA)
-        train_dataset, train_label = start_aeda(train_dataset, train_label)
+        train_dataset, train_label = start_aeda(train_dataset, train_label, args.aeda)
 
         # tokenizing dataset
         tokenized_train, token_size = preprocess.tokenized_dataset(train_dataset, tokenizer)

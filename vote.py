@@ -17,11 +17,11 @@ def to_nparray(s):
 
 
 dir = "/opt/ml/"
-path1 = "./prediction/submission0.csv"  # 가져올 csv 파일 주소 입력 필수!
-path2 = "./prediction/submission1.csv"
-path3 = "./prediction/submission2.csv"
-path4 = "./prediction/submission3.csv"
-path5 = "./prediction/submission4.csv"
+path1 = "./prediction/submission0_aeda_oversampling.csv"  # 가져올 csv 파일 주소 입력 필수!
+path2 = "./prediction/submission1_aeda_oversampling.csv"
+path3 = "./prediction/submission2_aeda_oversampling.csv"
+path4 = "./prediction/submission3_aeda_oversampling.csv"
+path5 = "./prediction/submission4_aeda_oversampling.csv"
 
 
 df1 = pd.read_csv(path1)
@@ -53,4 +53,4 @@ for i in range(len(df1["probs"])):
 df1["pred_label"] = df1["probs"].apply(lambda x: num_to_label(np.argmax(x)))
 df1["probs"] = df1["probs"].apply(lambda x: str(list(x)))
 
-df1.to_csv(f"./prediction/submission_fold_aeda.csv", index=False)  # 저장될 위치 및 이름 지정 필수!
+df1.to_csv(f"./prediction/submission_kfold5_aeda_oversampling.csv", index=False)  # 저장될 위치 및 이름 지정 필수!
