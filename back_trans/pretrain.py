@@ -204,7 +204,6 @@ def train():
                 seed=args.seed,
                 overwrite_output_dir=False,
                 fp16=args.fp16,
-                fp16_opt_level='O3',
                 fp16_full_eval=args.fp16,
                 fp16_backend='amp',
                 metric_for_best_model='micro f1 score',
@@ -239,7 +238,7 @@ if __name__ == '__main__':
     
     parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
     parser.add_argument('--model', type=str, default='klue/roberta-large', help='model type (default: klue/roberta-large)')
-    parser.add_argument('--epochs', type=int, default=8, help='number of epochs to train (default: 5)')
+    parser.add_argument('--epochs', type=int, default=2, help='number of epochs to train (default: 5)')
     parser.add_argument('--lr', type=float, default=3e-5, help='learning rate (default: 5e-5)')
     parser.add_argument('--batch', type=int, default=25, help='input batch size for training (default: 16)')
     parser.add_argument('--batch_valid', type=int, default=25, help='input batch size for validing (default: 16)')
