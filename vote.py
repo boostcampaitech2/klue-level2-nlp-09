@@ -17,11 +17,11 @@ def to_nparray(s):
 
 
 dir = "/opt/ml/"
-path1 = "./prediction/submission0_aeda_oversampling.csv"  # 가져올 csv 파일 주소 입력 필수!
-path2 = "./prediction/submission1_aeda_oversampling.csv"
-path3 = "./prediction/submission2_aeda_oversampling.csv"
-path4 = "./prediction/submission3_aeda_oversampling.csv"
-path5 = "./prediction/submission4_aeda_oversampling.csv"
+path1 = "./prediction/submission_random43_fold0.csv"  # 가져올 csv 파일 주소 입력 필수!
+path2 = "./prediction/submission_random43_fold1.csv"
+path3 = "./prediction/submission_random43_fold2.csv"
+path4 = "./prediction/submission_random43_fold3.csv"
+path5 = "./prediction/submission_random43_fold4.csv"
 
 
 df1 = pd.read_csv(path1)
@@ -44,13 +44,13 @@ df1["probs"] = (
     + df5["probs"].apply(lambda x: to_nparray(x) * 0.2)
 )
 # 가중치 조절 필수! 모든 가중치의 합은 1이 되도록
-for i in range(len(df1["probs"])):
-    df1["probs"][i] = F.softmax(torch.tensor(df1["probs"][i]), dim=0).detach().cpu().numpy()
-    if add_weight_Flag:
-        df1["probs"][i] += add_weight
-        df1["probs"][i] = F.softmax(torch.tensor(df1["probs"][i]), dim=0).detach().cpu().numpy()
+# for i in range(len(df1["probs"])):
+#     df1["probs"][i] = F.softmax(torch.tensor(df1["probs"][i]), dim=0).detach().cpu().numpy()
+#     if add_weight_Flag:
+#         df1["probs"][i] += add_weight
+#         df1["probs"][i] = F.softmax(torch.tensor(df1["probs"][i]), dim=0).detach().cpu().numpy()
 # 0 제외 나머지 클래스에 0.1씩 더하기?
 df1["pred_label"] = df1["probs"].apply(lambda x: num_to_label(np.argmax(x)))
 df1["probs"] = df1["probs"].apply(lambda x: str(list(x)))
 
-df1.to_csv(f"./prediction/submission_kfold5_aeda_oversampling.csv", index=False)  # 저장될 위치 및 이름 지정 필수!
+df1.to_csv(f"./prediction/submission_random43_kfold.csv", index=False)  # 저장될 위치 및 이름 지정 필수!

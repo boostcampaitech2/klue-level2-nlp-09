@@ -27,9 +27,9 @@ def get_config():
     parser = argparse.ArgumentParser()
 
     """path, model option"""
-    parser.add_argument("--seed", type=int, default=42, help="random seed (default: 42)")
+    parser.add_argument("--seed", type=int, default=43, help="random seed (default: 42)")
     parser.add_argument("--save_dir", type=str, default="./best_model/fold", help="model save dir path (default : ./best_model/fold)")
-    parser.add_argument("--wandb_path", type=str, default="aeda_oversampling2_orgdata_punc_lstm", help="wandb graph, save_dir basic path (default: aeda_punc_lstm")
+    parser.add_argument("--wandb_path", type=str, default="seed43", help="wandb graph, save_dir basic path (default: aeda_punc_lstm")
     parser.add_argument(
         "--train_path", type=str, default="/opt/ml/dataset/train/train.csv", help="train csv path (default: /opt/ml/dataset/train/train.csv"
     )
@@ -165,7 +165,7 @@ def train(args):
     all_dataset = preprocess.data
     all_label = all_dataset["label"].values
 
-    kfold = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    kfold = StratifiedKFold(n_splits=args.fold, shuffle=True, random_state=args.seed)
     for fold, (train_idx, val_idx) in enumerate(kfold.split(all_dataset, all_label)):
         run = wandb.init(project="klue", entity="quarter100", name=f"KFOLD_{fold}_{args.wandb_path}")
 
@@ -179,7 +179,8 @@ def train(args):
         val_label = preprocess.label_to_num(val_dataset["label"].values)
 
         # data augmentation (AEDA)
-        train_dataset, train_label = start_aeda(train_dataset, train_label, args.aeda)
+        if args.aeda > 1:
+            train_dataset, train_label = start_aeda(train_dataset, train_label, args.aeda)
 
         # tokenizing dataset
         tokenized_train, token_size = preprocess.tokenized_dataset(train_dataset, tokenizer)

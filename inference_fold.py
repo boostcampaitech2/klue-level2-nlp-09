@@ -40,9 +40,9 @@ def inference(model, tokenized_data, device, args):
         with torch.no_grad():
             outputs = model(input_ids=data["input_ids"].to(device), attention_mask=data["attention_mask"].to(device))
         logits = outputs["logits"]
-        # prob = F.softmax(logits, dim=-1).detach().cpu().numpy()
+        prob = F.softmax(logits, dim=-1).detach().cpu().numpy()
         logits = logits.detach().cpu().numpy()
-        prob = logits
+        #prob = logits
 
         result = np.argmax(logits, axis=-1)
 
@@ -117,23 +117,9 @@ def main_inference(args):
 
         if not os.path.exists(args.save_dir):
             os.makedirs(args.save_dir)
-        output.to_csv(os.path.join(args.save_dir, f"submission{i}_aeda_oversampling.csv"), index=False)
+        output.to_csv(os.path.join(args.save_dir, f"submission_random43_fold{i}.csv"), index=False)
 
         print(f"KFOLD : {i} inference fin !")
-
-    df_list[0]["probs"] = 0.2 * np.array(df_list[0]["probs"][1:-1].split(","))
-    for i in range(1, args.fold):
-        df_list[0]["probs"] += 0.2 * np.array(df_list[i]["probs"][1:-1].split(","))
-
-    for i in range(len(df_list["probs"])):
-        df_list[0]["probs"][i] = F.softmax(torch.tensor(df_list[0]["probs"][i]), dim=0).detach().cpu().numpy()
-
-    df_list[0]["pred_label"] = df_list[0]["probs"].apply(lambda x: num_to_label(np.argmax(x)))
-    df_list[0]["probs"] = df_list[0]["probs"].apply(lambda x: str(list(x)))
-
-    df_list[0].to_csv(os.path.join(args.save_dir, "submission_kfold_aeda.csv"), index=False)
-
-    print("FIN")
 
 
 if __name__ == "__main__":
