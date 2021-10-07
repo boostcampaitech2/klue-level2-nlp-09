@@ -1,21 +1,22 @@
-import pickle as pickle
 import os
-import pandas as pd
 import torch
-import sklearn
+from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments, EarlyStoppingCallback
+import argparse
 import random
 import argparse
 import glob
 import re
-import numpy as np
-import wandb
 from pathlib import Path
+
+import sklearn
+from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
-from sklearn.model_selection import KFold, StratifiedKFold
-from transformers import AutoTokenizer, AutoConfig, AutoModelForSequenceClassification, Trainer, TrainingArguments, RobertaConfig, RobertaTokenizer, RobertaForSequenceClassification, BertTokenizer
-from load_data import *
-from focal_loss import *
-from MyTrainer import *
+
+
+import wandb
+from dataset import *
+from model import *
+
 
 def seed_everything(seed):
     random.seed(seed)
@@ -27,12 +28,6 @@ def seed_everything(seed):
     torch.backends.cudnn.benchmark = True
     
 def increment_path(path, exist_ok=False):
-    """ Automatically increment path, i.e. runs/exp --> runs/exp0, runs/exp1 etc.
-
-    Args:
-        path (str or pathlib.Path): f"{model_dir}/{args.name}".
-        exist_ok (bool): whether increment path (increment if False).
-    """
     path = Path(path)
     if (path.exists() and exist_ok) or (not path.exists()):
         return str(path)
@@ -43,22 +38,62 @@ def increment_path(path, exist_ok=False):
         n = max(i) + 1 if i else 2
         return f"{path}{n}"
 
+def get_config():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--seed', type=int, default=45,
+                        help='random seed (default: 42)')
+    parser.add_argument('--train_path', type= str, default= '/opt/ml/dataset/train/train.csv',
+                        help='train csv path (default: /opt/ml/dataset/train/dataset/train/train.csv')
+    parser.add_argument('--tokenize_option', type=str, default='PUN',
+                        help='token option ex) SUB, PUN')    
+    parser.add_argument('--fold', type=int, default=5,
+                        help='fold (default: 5)')
+    parser.add_argument('--model', type=str, default='klue/roberta-large',
+                        help='model type (default: klue/roberta-large)')
+    parser.add_argument('--epochs', type=int, default=5,
+                        help='number of epochs to train (default: 5)')
+    parser.add_argument('--lr', type=float, default=1e-5,
+                        help='learning rate (default: 1e-5)')
+    parser.add_argument('--batch', type=int, default=32,
+                        help='input batch size for training (default: 32)')
+    parser.add_argument('--batch_valid', type=int, default=32,
+                        help='input batch size for validing (default: 32)')
+    parser.add_argument('--warmup', type=int, default=0.1,
+                        help='warmup_ratio (default: 0.1)')
+    parser.add_argument('--eval_steps', type=int, default=250,
+                        help='eval_steps (default: 250)')
+    parser.add_argument('--save_steps', type=int, default=250,
+                        help='save_steps (default: 250)')
+    parser.add_argument('--logging_steps', type=int,
+                        default=50, help='logging_steps (default: 50)')
+    parser.add_argument('--weight_decay', type=float,
+                        default=0.01, help='weight_decay (default: 0.01)')
+    parser.add_argument('--metric_for_best_model', type=str, default='micro f1 score',
+                        help='metric_for_best_model (default: micro f1 score')
+    
+    args= parser.parse_args()
+
+    return args
+
 def klue_re_micro_f1(preds, labels):
     """KLUE-RE micro f1 (except no_relation)"""
     label_list = ['no_relation', 'org:top_members/employees', 'org:members',
-       'org:product', 'per:title', 'org:alternate_names',
-       'per:employee_of', 'org:place_of_headquarters', 'per:product',
-       'org:number_of_employees/members', 'per:children',
-       'per:place_of_residence', 'per:alternate_names',
-       'per:other_family', 'per:colleagues', 'per:origin', 'per:siblings',
-       'per:spouse', 'org:founded', 'org:political/religious_affiliation',
-       'org:member_of', 'per:parents', 'org:dissolved',
-       'per:schools_attended', 'per:date_of_death', 'per:date_of_birth',
-       'per:place_of_birth', 'per:place_of_death', 'org:founded_by',
-       'per:religion']
+        'org:product', 'per:title', 'org:alternate_names',
+        'per:employee_of', 'org:place_of_headquarters', 'per:product',
+        'org:number_of_employees/members', 'per:children',
+        'per:place_of_residence', 'per:alternate_names',
+        'per:other_family', 'per:colleagues', 'per:origin', 'per:siblings',
+        'per:spouse', 'org:founded', 'org:political/religious_affiliation',
+        'org:member_of', 'per:parents', 'org:dissolved',
+        'per:schools_attended', 'per:date_of_death', 'per:date_of_birth',
+        'per:place_of_birth', 'per:place_of_death', 'org:founded_by',
+        'per:religion']
+        
     no_relation_label_idx = label_list.index("no_relation")
     label_indices = list(range(len(label_list)))
     label_indices.remove(no_relation_label_idx)
+
     return sklearn.metrics.f1_score(labels, preds, average="micro", labels=label_indices) * 100.0
 
 def klue_re_auprc(probs, labels):
@@ -89,131 +124,102 @@ def compute_metrics(pred):
         'accuracy': acc,
     }
 
-def label_to_num(label):
-    num_label = []
-    with open('dict_label_to_num.pkl', 'rb') as f:
-        dict_label_to_num = pickle.load(f)
-    for v in label:
-        num_label.append(dict_label_to_num[v])
-  
-    return num_label
+def random_masking(tokenized_train, p = 0.15) :
+    nums_to_protect = [0,1,2,3,7,14,36,65,21639,32000,32001,32002,32003,32004] #[cls, pad, sep, unk, #, *, @, ^, per, loc, poh, dat, noh, org]
+    # p보다 작으면 random delete 실행 크면 그대로  
+    masked_train = tokenized_train
+    for i, input_id in enumerate(tokenized_train['input_ids']) :
+        input_id = input_id.tolist()
+        masked_id = input_id
+        cls_count = 0
+        for idx, token_num in enumerate(input_id) :
+            if token_num == 2 :
+                cls_count += 1
+            if cls_count == 0 :
+                continue
+            elif cls_count == 2 :
+                break
+            else :
+                if random.random() < p and token_num not in nums_to_protect :
+                    masked_id[idx] = 4
+        masked_train['input_ids'][i] = torch.tensor(masked_id)
+    return masked_train
 
-def train():
+def train(args):
+    
     seed_everything(args.seed)
-    
-    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-    print(device)
-    
-    # load model and tokenizer
-    # MODEL_NAME = "bert-base-uncased"
-    MODEL_NAME = args.model
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+    device= torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-    # load dataset
-    default_dataset = load_data("../dataset/train/train.csv")
-    default_label = label_to_num(default_dataset['label'].values)
-    
-    #K-fold
-    kfold = StratifiedKFold(n_splits=args.fold, shuffle=True, random_state=args.seed)
-    for fold, (train_idx, val_idx) in enumerate(kfold.split(default_dataset, default_label)):
-        print(f"{fold} FOLD")
+    tokenizer= AutoTokenizer.from_pretrained(args.model)
+    preprocess= Preprocess(args.train_path, args.tokenize_option)
+
+    all_dataset= preprocess.data
+    all_label= all_dataset['label'].values
+
+    kfold= StratifiedKFold(n_splits= 5, shuffle= True, random_state= args.seed)
+    for fold, (train_idx, val_idx) in enumerate(kfold.split(all_dataset, all_label)):
         
-        train_label = label_to_num(default_dataset['label'].iloc[train_idx].values)
-        valid_label = label_to_num(default_dataset['label'].iloc[val_idx].values)
-        
-        train_dataset = default_dataset.iloc[train_idx]
-        valid_dataset = default_dataset.iloc[val_idx]
-        
-        # tokenizing dataset
-        tokenized_train = tokenized_dataset(train_dataset, tokenizer)
-        tokenized_valid = tokenized_dataset(valid_dataset, tokenizer)
+        print(f'fold: {fold} start!')
+        train_dataset= all_dataset.iloc[train_idx]
+        val_dataset= all_dataset.iloc[val_idx]
 
-        # make dataset for pytorch.
-        RE_train_dataset = RE_Dataset(tokenized_train, train_label)
-        RE_valid_dataset = RE_Dataset(tokenized_valid, valid_label)
+        train_label= preprocess.label_to_num(train_dataset['label'].values)
+        val_label= preprocess.label_to_num(val_dataset['label'].values)
 
-        # setting model hyperparameter
-        model_config =  AutoConfig.from_pretrained(MODEL_NAME)
-        model_config.num_labels = 30
+        tokenized_train, token_size= preprocess.tokenized_dataset(train_dataset, tokenizer, mask_flag=True, p = 0.5)
+        #masked_train = random_masking(tokenized_train, p = 0.15)
+        tokenized_val, _= preprocess.tokenized_dataset(val_dataset, tokenizer)
 
-        model =  AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, config=model_config)
-        model.parameters
+        trainset= Dataset(tokenized_train, train_label)
+        valset= Dataset(tokenized_val, val_label)
+
+        model= Model(args.model)
+        model.model.resize_token_embeddings(tokenizer.vocab_size + token_size)
         model.to(device)
 
-        
-        save_dir = increment_path('./results/'+MODEL_NAME)
-        # 사용한 option 외에도 다양한 option들이 있습니다.
-        # https://huggingface.co/transformers/main_classes/trainer.html#trainingarguments 참고해주세요.
-        training_args = TrainingArguments(
-            output_dir=save_dir,          # output directory
-            save_total_limit=1,              # number of total save model.
-            save_steps=args.save_steps,                 # model saving step.
-            num_train_epochs=args.epochs,              # total number of training epochs
-            learning_rate=args.lr,               # learning_rate
-            per_device_train_batch_size=args.batch,  # batch size per device during training
-            per_device_eval_batch_size=args.batch_valid,   # batch size for evaluation
-            warmup_steps=args.warmup,                # number of warmup steps for learning rate scheduler
-            weight_decay=args.weight_decay,               # strength of weight decay
-            logging_dir='./logs',            # directory for storing logs
-            logging_steps=args.logging_steps,        # log saving step.
-            evaluation_strategy='steps', # evaluation strategy to adopt during training
-                                        # `no`: No evaluation during training.
-                                        # `steps`: Evaluate every `eval_steps`.
-                                        # `epoch`: Evaluate every end of epoch.
-            eval_steps = args.eval_steps,            # evaluation step.
-            load_best_model_at_end = True, 
-            seed = args.seed,
-            metric_for_best_model='micro f1 score',
-            report_to = "wandb"
-        )
-    
-        trainer = MyTrainer(
-            loss_name=args.loss,
-            model=model,                         # the instantiated 🤗 Transformers model to be trained
-            args=training_args,                  # training arguments, defined above
-            train_dataset=RE_train_dataset,         # training dataset
-            eval_dataset=RE_valid_dataset,          # evaluation dataset
-            compute_metrics=compute_metrics         # define metrics function
+        save_dir = increment_path('./results/'+'klue-roberta')
+        training_args= TrainingArguments(
+            output_dir= save_dir,
+            save_total_limit= 1,
+            save_steps=args.save_steps,
+            num_train_epochs=args.epochs,
+            learning_rate=args.lr,
+            per_device_train_batch_size=args.batch,
+            per_device_eval_batch_size=args.batch_valid,
+            label_smoothing_factor=0.1,
+            warmup_ratio= args.warmup,
+            weight_decay=args.weight_decay,
+            logging_dir='./logs',
+            logging_steps=args.logging_steps,
+            metric_for_best_model= args.metric_for_best_model,
+            evaluation_strategy= 'steps',
+            group_by_length= True,
+            eval_steps= args.eval_steps,
+            load_best_model_at_end=True,
+            seed = args.seed
         )
 
-        # train model
-        #wandb.init(project='P2', group=CFG.MODEL_NAME, name=save_dir.split('/')[-1], tags=CFG.tag, config=CFG)
-        run = wandb.init(project='klue', entity='quarter100', name=save_dir.split('/')[-1]+'fold'+str(fold))
+        trainer= Trainer(
+            model= model,
+            args= training_args,
+            train_dataset= trainset,
+            eval_dataset= valset,
+            compute_metrics= compute_metrics,
+            callbacks= [EarlyStoppingCallback(early_stopping_patience= 3)]
+        )
+        
+        run= wandb.init(project= 'klue', entity= 'quarter100', name= 'kdi_seed45'+'fold'+str(fold))
         trainer.train()
-        model.save_pretrained('./best_model'+str(fold))
+        model_object_file_path =  './best_model/fold'+str(fold)
+        if not os.path.exists(model_object_file_path):
+            os.makedirs(model_object_file_path)
+        torch.save(model.state_dict(), os.path.join(model_object_file_path, 'pytorch_model.bin'))
         run.finish()
-    
-def main():
-    #torch.cuda.empty_cache()
-    train()
+
+
+
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser()
-    
-    parser.add_argument('--seed', type=int, default=42, help='random seed (default: 42)')
-    parser.add_argument('--fold', type=int, default=5, help='fold (default: 5)')
-    parser.add_argument('--model', type=str, default='xlm-roberta-large', help='model type (default: xlm-roberta-large)')
-    parser.add_argument('--epochs', type=int, default=5, help='number of epochs to train (default: 5)')
-    parser.add_argument('--loss', type=str, default='FocalLoss', help='train loss (default: FocalLoss)')
-    parser.add_argument('--lr', type=float, default=1e-5, help='learning rate (default: 5e-5)')
-    parser.add_argument('--batch', type=int, default=16, help='input batch size for training (default: 16)')
-    parser.add_argument('--batch_valid', type=int, default=16, help='input batch size for validing (default: 16)')
-    parser.add_argument('--warmup', type=int, default=200, help='warmup_steps (default: 200)')
-    parser.add_argument('--eval_steps', type=int, default=406, help='eval_steps (default: 406)')
-    parser.add_argument('--save_steps', type=int, default=406, help='save_steps (default: 406)')
-    parser.add_argument('--logging_steps', type=int, default=100, help='logging_steps (default: 100)')
-    parser.add_argument('--weight_decay', type=float, default=0.01, help='weight_decay (default: 0.01)')
-    
-    args = parser.parse_args()
-    print(args)
-    
-    '''
-    CFG = wandb.config
-    CFG.name = 'Baseline'
-    CFG.tag = ['Baseline']
-    CFG.NUM_FOLD = args.fold
-    CFG.FOLD = range(CFG.NUM_FOLD)   # if you want to do just simple test, set this [0]
-    CFG.MODEL_NAME = args.model
-    '''
-    
-    main()
+
+    args= get_config()
+    train(args)
