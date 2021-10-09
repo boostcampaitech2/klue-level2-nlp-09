@@ -13,7 +13,6 @@ from urllib.request import urlopen
 import json
 from datetime import datetime
 
-data_path = '.'
 
 def chrome_setting():
     chrome_options = webdriver.ChromeOptions()
