@@ -47,9 +47,15 @@ if args.aeda > 1:
 - `train_label` 선언 이후에 aeda 코드를 추가해 주면 사용 가능합니다
 
 ## Random masking
+- 2가지 방법으로 random masking 사용 가능
 ```python
-train.py
+random_maksing/train.py
 
 tokenized_train, token_size= preprocess.tokenized_dataset(train_dataset, tokenizer, mask_flag=True)
 tokenized_val, _= preprocess.tokenized_dataset(val_dataset, tokenizer, mask_flag=True)
+```
+```python
+random_maksing/train.py
+
+masked_train = random_masking(tokenized_train, p = 0.15)
 ```
