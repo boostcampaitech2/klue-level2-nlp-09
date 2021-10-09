@@ -1,10 +1,10 @@
 # Augmentation 사용법
 
-[EDA](#eda)  
-[AEDA](#aeda)
-[Back Translation](https://github.com/boostcampaitech2/klue-level2-nlp-09/blob/main/augmentation/back_trans/README.md)
+## 🤗 [EDA](#eda)  
+## 🤗 [AEDA](#aeda)
+## 🤗 [Back Translation](back_trans/README.md)
 
-## EDA  
+## EDA(Easy )
 ### Random swap  
 * eda.py 파일 만들고 코드를 복붙합니다.  
 * train.py 에서 from eda import.py를 합니다.  

@@ -15,8 +15,7 @@ pip install -r requirements.txt
 ```
 python back_translation.py
 
-or 
-
+# Get log via nohup
 bt.sh
 ```
 
