@@ -1,4 +1,7 @@
-# klue-level2-nlp-09  
+# Augmentation 사용법
+
+[EDA](#eda)  
+[AEDA](#aeda)
 
 ## EDA  
 ### Random swap  
