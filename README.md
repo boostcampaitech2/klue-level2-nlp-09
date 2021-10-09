@@ -1,10 +1,10 @@
-# KLUE Relation Extraction Competition
+# KLUE Relation Extraction Competition, Naver Boostcamp AI Tech 2기
 ## Competition Abstract
-🤗 KLUE RE Dataset으로 주어진 문장의 지정된 두 Entity의 관계를 추출, 분류하는 Task.  
+🤗 KLUE RE(Relation Extraction) Dataset으로 주어진 문장의 지정된 두 Entity의 관계를 추출, 분류하는 Task.  
 🤗 Public, Private 데이터가 분리된 Leaderboard 평가가 이루어짐.  
 🤗 하루 10회로 모델 제출 제한
 
-## [Competition Report](competiton_results/boostcamp-nlp-9.pdf)
+## [Competition Report(PDF)](competiton_results/boostcamp-nlp-9.pdf)
 ## Our solutions
 - 'klue/roberta-large' with BiLSTM
 - Modify Input format
@@ -57,4 +57,3 @@ Prediction csv files are saved in "./prediction".
 python vote.py
 ```
 Ensemble result is saved in "./prediction/submission_fold_total.csv".
-## 
