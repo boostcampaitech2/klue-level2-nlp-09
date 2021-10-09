@@ -2,7 +2,7 @@
 
 ## 🤗 [EDA](#eda)  
 ## 🤗 [AEDA](#aeda)
-## 🤗 [Back Translation](back_trans/README.md)
+## 🤗 [Back Translation](https://github.com/boostcampaitech2/klue-level2-nlp-09/blob/main/augmentation/back_trans/README.md)
 ## 🤗 [Random masking](#random-masking)
 
 ## EDA  
