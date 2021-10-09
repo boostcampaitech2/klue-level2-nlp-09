@@ -4,14 +4,19 @@ from transformers import AutoTokenizer, AutoModel, Trainer, TrainingArguments, E
 import argparse
 import random
 import argparse
+import glob
+import re
+from pathlib import Path
 
 import sklearn
 from sklearn.model_selection import train_test_split, StratifiedKFold
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score
 
+
 import wandb
 from dataset import *
 from model import *
+
 
 def seed_everything(seed):
     random.seed(seed)
@@ -21,39 +26,37 @@ def seed_everything(seed):
     torch.cuda.manual_seed(seed)
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = True
+    
+def increment_path(path, exist_ok=False):
+    path = Path(path)
+    if (path.exists() and exist_ok) or (not path.exists()):
+        return str(path)
+    else:
+        dirs = glob.glob(f"{path}*")
+        matches = [re.search(rf"%s(\d+)" % path.stem, d) for d in dirs]
+        i = [int(m.groups()[0]) for m in matches if m]
+        n = max(i) + 1 if i else 2
+        return f"{path}{n}"
 
 def get_config():
     parser = argparse.ArgumentParser()
 
-
-    """path, model option"""
-    parser.add_argument('--seed', type=int, default=42,
+    parser.add_argument('--seed', type=int, default=45,
                         help='random seed (default: 42)')
-    parser.add_argument('--save_dir', type=str, default = './best_model/fold', 
-                        help='model save dir path (default : ./best_model/fold)')
-    parser.add_argument('--wandb_path', type= str, default= 'sm_kr_punc_lstm_add_token_1e-5',
-                        help='wandb graph, save_dir basic path (default: sm_kr_punc_lstm') 
     parser.add_argument('--train_path', type= str, default= '/opt/ml/dataset/train/train.csv',
-                        help='train csv path (default: /opt/ml/dataset/train/train.csv')
+                        help='train csv path (default: /opt/ml/dataset/train/dataset/train/train.csv')
     parser.add_argument('--tokenize_option', type=str, default='PUN',
                         help='token option ex) SUB, PUN')    
     parser.add_argument('--fold', type=int, default=5,
                         help='fold (default: 5)')
     parser.add_argument('--model', type=str, default='klue/roberta-large',
                         help='model type (default: klue/roberta-large)')
-    parser.add_argument('--loss', type=str, default= 'LB',
-                        help='LB: LabelSmoothing, CE: CrossEntropy')
-
-
-    """hyperparameter"""
     parser.add_argument('--epochs', type=int, default=5,
                         help='number of epochs to train (default: 5)')
     parser.add_argument('--lr', type=float, default=1e-5,
                         help='learning rate (default: 1e-5)')
     parser.add_argument('--batch', type=int, default=32,
                         help='input batch size for training (default: 32)')
-    parser.add_argument('--gradient_accum', type=int, default=2,
-                        help='gradient accumulation (default: 2)')
     parser.add_argument('--batch_valid', type=int, default=32,
                         help='input batch size for validing (default: 32)')
     parser.add_argument('--warmup', type=int, default=0.1,
@@ -72,29 +75,6 @@ def get_config():
     args= parser.parse_args()
 
     return args
-
-class Custom_Trainer(Trainer):
-    def __init__(self, loss_name, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.loss_name= loss_name
-    
-    def compute_loss(self, model, inputs, return_outputs= False):
-        labels= inputs.pop('labels')
-        outputs= model(**inputs)
-        device= torch.device('cuda:0' if torch.cuda.is_available else 'cpu:0')
-        
-        if self.args.past_index >=0:
-            self._past= outputs[self.args.past_index]
-
-        if self.loss_name== 'CrossEntropyLoss':
-            custom_loss= torch.nn.CrossEntropyLoss().to(device)
-            loss= custom_loss(outputs['logits'], labels)
-        
-        elif self.loss_name== 'LabelSmoothLoss' and self.label_smoother is not None:
-            loss= self.label_smoother(outputs, labels)
-            loss= loss.to(device)
-        
-        return (loss, outputs) if return_outputs else loss
 
 def klue_re_micro_f1(preds, labels):
     """KLUE-RE micro f1 (except no_relation)"""
@@ -119,7 +99,6 @@ def klue_re_micro_f1(preds, labels):
 def klue_re_auprc(probs, labels):
     """KLUE-RE AUPRC (with no_relation)"""
     labels = np.eye(30)[labels]
-
     score = np.zeros((30,))
     for c in range(30):
         targets_c = labels.take([c], axis=1).ravel()
@@ -134,15 +113,37 @@ def compute_metrics(pred):
     preds = pred.predictions.argmax(-1)
     probs = pred.predictions
 
+    # calculate accuracy using sklearn's function
     f1 = klue_re_micro_f1(preds, labels)
     auprc = klue_re_auprc(probs, labels)
-    acc = accuracy_score(labels, preds) 
+    acc = accuracy_score(labels, preds) # 리더보드 평가에는 포함되지 않습니다.
 
     return {
         'micro f1 score': f1,
         'auprc' : auprc,
         'accuracy': acc,
     }
+
+def random_masking(tokenized_train, p = 0.15) :
+    nums_to_protect = [0,1,2,3,7,14,36,65,21639,32000,32001,32002,32003,32004] #[cls, pad, sep, unk, #, *, @, ^, per, loc, poh, dat, noh, org]
+    # p보다 작으면 random delete 실행 크면 그대로  
+    masked_train = tokenized_train
+    for i, input_id in enumerate(tokenized_train['input_ids']) :
+        input_id = input_id.tolist()
+        masked_id = input_id
+        cls_count = 0
+        for idx, token_num in enumerate(input_id) :
+            if token_num == 2 :
+                cls_count += 1
+            if cls_count == 0 :
+                continue
+            elif cls_count == 2 :
+                break
+            else :
+                if random.random() < p and token_num not in nums_to_protect :
+                    masked_id[idx] = 4
+        masked_train['input_ids'][i] = torch.tensor(masked_id)
+    return masked_train
 
 def train(args):
     
@@ -155,9 +156,9 @@ def train(args):
     all_dataset= preprocess.data
     all_label= all_dataset['label'].values
 
-    kfold= StratifiedKFold(n_splits= 5, shuffle= True, random_state= 42)
+    kfold= StratifiedKFold(n_splits= 5, shuffle= True, random_state= args.seed)
     for fold, (train_idx, val_idx) in enumerate(kfold.split(all_dataset, all_label)):
-        run= wandb.init(project= 'klue', entity= 'quarter100', name= f'KFOLD_{fold}_{args.wandb_path}')
+        
         print(f'fold: {fold} start!')
         train_dataset= all_dataset.iloc[train_idx]
         val_dataset= all_dataset.iloc[val_idx]
@@ -165,7 +166,8 @@ def train(args):
         train_label= preprocess.label_to_num(train_dataset['label'].values)
         val_label= preprocess.label_to_num(val_dataset['label'].values)
 
-        tokenized_train, token_size= preprocess.tokenized_dataset(train_dataset, tokenizer)
+        tokenized_train, token_size= preprocess.tokenized_dataset(train_dataset, tokenizer, mask_flag=True, p = 0.5)
+        #masked_train = random_masking(tokenized_train, p = 0.15)
         tokenized_val, _= preprocess.tokenized_dataset(val_dataset, tokenizer)
 
         trainset= Dataset(tokenized_train, train_label)
@@ -175,12 +177,10 @@ def train(args):
         model.model.resize_token_embeddings(tokenizer.vocab_size + token_size)
         model.to(device)
 
-        save_dir= f'./result/KFOLD_{fold}_{args.wandb_path}'
-
+        save_dir = increment_path('./results/'+'klue-roberta')
         training_args= TrainingArguments(
             output_dir= save_dir,
             save_total_limit= 1,
-            # gradient_accumulation_steps= args.gradient_accum,
             save_steps=args.save_steps,
             num_train_epochs=args.epochs,
             learning_rate=args.lr,
@@ -195,36 +195,28 @@ def train(args):
             evaluation_strategy= 'steps',
             group_by_length= True,
             eval_steps= args.eval_steps,
-            load_best_model_at_end=True
+            load_best_model_at_end=True,
+            seed = args.seed
         )
 
-        if args.loss== 'LB':
-            trainer= Trainer(
-                model= model,
-                args= training_args,
-                train_dataset= trainset,
-                eval_dataset= valset,
-                compute_metrics= compute_metrics,
-                callbacks= [EarlyStoppingCallback(early_stopping_patience= 3)]
-            )
-
-        elif args.loss== 'CE':
-            trainer= Custom_Trainer(
-                model=model,                         # the instantiated 🤗 Transformers model to be trained
-                args=training_args,                  # training arguments, defined above
-                train_dataset=trainset,         # training dataset
-                eval_dataset=valset,             # evaluation dataset
-                compute_metrics=compute_metrics,         # define metrics function
-                callbacks = [EarlyStoppingCallback(early_stopping_patience= 3)],
-                loss_name = 'CrossEntropyLoss'
-            )
-
+        trainer= Trainer(
+            model= model,
+            args= training_args,
+            train_dataset= trainset,
+            eval_dataset= valset,
+            compute_metrics= compute_metrics,
+            callbacks= [EarlyStoppingCallback(early_stopping_patience= 3)]
+        )
+        
+        run= wandb.init(project= 'klue', entity= 'quarter100', name= 'kdi_seed45'+'fold'+str(fold))
         trainer.train()
-        if not os.path.exists(f'{args.save_dir}_{fold}'):
-            os.makedirs(f'{args.save_dir}_{fold}')
-        torch.save(model.state_dict(), os.path.join(f'{args.save_dir}_{fold}', 'pytorch_model.bin'))
+        model_object_file_path =  './best_model/fold'+str(fold)
+        if not os.path.exists(model_object_file_path):
+            os.makedirs(model_object_file_path)
+        torch.save(model.state_dict(), os.path.join(model_object_file_path, 'pytorch_model.bin'))
         run.finish()
-        print(f'fold{fold} fin!')
+
+
 
 
 if __name__ == '__main__':

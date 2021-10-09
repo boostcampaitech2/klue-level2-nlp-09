@@ -18,16 +18,16 @@
 - Ensemble
   - Stratified K-Fold & OOF(Out-of-Fold) Prediction
   - K-fold Ensemble via weighted soft voting
-## Docs 
-- Mdoel docs
-  - [Test12](competiton_results/boostcamp-nlp-9.pdf)
-- Augmentation docs
-  - [Test121](competiton_results/boostcamp-nlp-9.pdf)
 
 ## 최종 순위 2등!
 <img src="competiton_results/capture.png" width="80%">
 
 --- 
+## Docs 
+- Model docs
+  - [Developed models](models\README.md)
+- Augmentation docs
+  - [Task Adaptive Pre-Training via Back translation](augmentation\back_trans\README.md)
 ## Quickstart
 ### Installation
 ```

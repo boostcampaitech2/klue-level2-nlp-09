@@ -6,14 +6,14 @@
   
 ## Required Installations
 ```
-pip install -r back_trans/requirements.txt
+pip install -r requirements.txt
 ```
 - chromedriver
 
 ## How to use
 ### Back translation
 ```
-python back_trans/back_translation.py
+python back_translation.py
 
 or 
 
@@ -33,7 +33,7 @@ bt.sh
 
 ### Pre-training
 ```
-python back_trans/pretrain.py
+python pretrain.py
 ```
 Pre-trained model will saved at './pretrined_model'.
 
