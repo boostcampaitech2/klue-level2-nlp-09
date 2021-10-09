@@ -14,6 +14,10 @@ pip install -r back_trans/requirements.txt
 ### Back translation
 ```
 python back_trans/back_translation.py
+
+or 
+
+bt.sh
 ```
 
 **Options**
