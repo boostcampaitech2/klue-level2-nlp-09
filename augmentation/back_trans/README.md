@@ -42,10 +42,9 @@ Pre-trained model saved dir = './pretrined_model'.
 - MODEL_NAME: must use 'klue/roberta-large'
     - 'klue/roberta-large'를 transformers.AutoModel나 transformers.AutoModelForMaskedLM로 load해야지만 pre-trained model을 사용 가능.
 ```python
-from back_trans import BackTransPreTrain()
+from back_trans import BackTransPreTrain
 
-model= AutoModel.from_pretrained(MODEL_NAME)
-pretrained = BackTransPreTrain()
+model = AutoModel.from_pretrained(MODEL_NAME)
 
 bpt = BackTransPreTrain(pretrain_path)
 model.load_state_dict(bpt.load_parameters(MODEL_NAME))
