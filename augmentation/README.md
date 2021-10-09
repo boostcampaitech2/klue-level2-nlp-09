@@ -2,6 +2,7 @@
 
 [EDA](#eda)  
 [AEDA](#aeda)
+[Back Translation](https://github.com/boostcampaitech2/klue-level2-nlp-09/blob/main/augmentation/back_trans/README.md)
 
 ## EDA  
 ### Random swap  
