@@ -40,9 +40,6 @@ parser.add_argument("--aeda", type=int, default=2, help="aeda num (default: 2")
 ``` 
 - `train_label` 선언 이후에 aeda 코드를 추가해 주면 사용 가능합니다.
 ```py
-train_label = preprocess.label_to_num(train_dataset["label"].values)
-val_label = preprocess.label_to_num(val_dataset["label"].values)
-
 # data augmentation (AEDA)
 if args.aeda > 1:
    train_dataset, train_label = start_aeda(train_dataset, train_label, args.aeda)
