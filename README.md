@@ -27,7 +27,11 @@
 - Model docs
   - [Developed models](models\README.md)
 - Augmentation docs
-  - [Task Adaptive Pre-Training via Back translation](augmentation\back_trans\README.md)
+  - [Task Adaptive Pre-Training via Back translation](./augmentation/back_trans/README.md)
+  - [EDA](./augmentation/README.md#eda)
+  - [AEDA](./augmentation/README.md#aeda)
+  - [Random masking](./augmentation/README.md#random-masking)
+
 ## Quickstart
 ### Installation
 ```

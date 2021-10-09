@@ -51,7 +51,7 @@ if args.aeda > 1:
 ```python
 random_maksing/train.py
 
-tokenized_train, token_size= preprocess.tokenized_dataset(train_dataset, tokenizer, mask_flag=False)
+tokenized_train, token_size= preprocess.tokenized_dataset(train_dataset, tokenizer, mask_flag=True)
 tokenized_val, _= preprocess.tokenized_dataset(val_dataset, tokenizer, mask_flag=False)
 ```
 ```python
