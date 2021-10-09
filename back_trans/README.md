@@ -5,7 +5,9 @@
 🤗 Parameters: Load Pre-trained model for our best model.  
   
 ## Required Installations
-- pip module in requirements.txt
+```
+pip install -r back_trans/requirements.txt
+```
 - chromedriver
 
 ## How to use
