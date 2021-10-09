@@ -4,7 +4,7 @@
 ## 🤗 [AEDA](#aeda)
 ## 🤗 [Back Translation](back_trans/README.md)
 
-## EDA(Easy )
+## EDA
 ### Random swap  
 * eda.py 파일 만들고 코드를 복붙합니다.  
 * train.py 에서 from eda import.py를 합니다.  
@@ -45,3 +45,11 @@ if args.aeda > 1:
    train_dataset, train_label = start_aeda(train_dataset, train_label, args.aeda)
 ```
 - `train_label` 선언 이후에 aeda 코드를 추가해 주면 사용 가능합니다
+
+## Random masking
+```python
+train.py
+
+tokenized_train, token_size= preprocess.tokenized_dataset(train_dataset, tokenizer, mask_flag=True)
+tokenized_val, _= preprocess.tokenized_dataset(val_dataset, tokenizer, mask_flag=True)
+```

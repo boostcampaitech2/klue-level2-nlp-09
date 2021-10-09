@@ -1,6 +1,5 @@
 # Developed Models
-😎 Best model
-## dain
+😎 TODO
 
 ## dayeong
 ## sdg
