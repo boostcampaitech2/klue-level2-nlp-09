@@ -31,7 +31,7 @@
   - [EDA](./augmentation/README.md#eda)
   - [AEDA](./augmentation/README.md#aeda)
   - [Random masking](./augmentation/README.md#random-masking)
-  - 
+
 ## Quickstart
 ### Installation
 ```
