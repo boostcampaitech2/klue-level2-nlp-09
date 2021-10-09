@@ -3,7 +3,7 @@
 ## 🤗 [EDA](#eda)  
 ## 🤗 [AEDA](#aeda)
 ## 🤗 [Back Translation](back_trans/README.md)
-
+## 🤗 [Random masking](#random-masking)
 
 ## EDA  
 ### Random swap, Random Delete
@@ -45,14 +45,14 @@ if args.aeda > 1:
    train_dataset, train_label = start_aeda(train_dataset, train_label, args.aeda)
 ```
 
-
+---
 ## Random masking
 - 2가지 방법으로 random masking 사용 가능
 ```python
 random_maksing/train.py
 
-tokenized_train, token_size= preprocess.tokenized_dataset(train_dataset, tokenizer, mask_flag=True)
-tokenized_val, _= preprocess.tokenized_dataset(val_dataset, tokenizer, mask_flag=True)
+tokenized_train, token_size= preprocess.tokenized_dataset(train_dataset, tokenizer, mask_flag=False)
+tokenized_val, _= preprocess.tokenized_dataset(val_dataset, tokenizer, mask_flag=False)
 ```
 ```python
 random_maksing/train.py
