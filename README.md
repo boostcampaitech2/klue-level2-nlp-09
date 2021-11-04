@@ -5,7 +5,7 @@
 🤗 하루 10회로 모델 제출 제한
 
 ## [Team Portfolio](https://naem1023.notion.site/KLUE-ad3b884f6c2a4f28a00b548aa12c51b6)
-## [Competition Report(PDF)](competiton_results/boostcamp-nlp-9.pdf)
+## [Competition Report(PDF)](competition_results/boostcamp-nlp-9.pdf)
 ## Our solutions
 - 'klue/roberta-large' with BiLSTM
 - Modify Input format
@@ -21,7 +21,7 @@
   - K-fold Ensemble via weighted soft voting
 
 ## 최종 순위 2등!
-<img src="competiton_results/capture.png" width="80%">
+<img src="competition_results/capture.png" width="80%">
 
 --- 
 ## Docs 
