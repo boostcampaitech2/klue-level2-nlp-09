@@ -5,7 +5,7 @@
 🤗 하루 10회로 모델 제출 제한
 
 ## [Team Portfolio](https://naem1023.notion.site/KLUE-ad3b884f6c2a4f28a00b548aa12c51b6)
-## [Competition Report(PDF)](competition_results/boostcamp-nlp-9.pdf)
+## [Competition Report(PDF)](competition_results/Competition%20Report.pdf)
 ## Our solutions
 - 'klue/roberta-large' with BiLSTM
 - Modify Input format
