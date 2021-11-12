@@ -5,6 +5,7 @@
 🤗 하루 10회로 모델 제출 제한
 
 ## [Team Portfolio](https://naem1023.notion.site/KLUE-ad3b884f6c2a4f28a00b548aa12c51b6)
+## [Solution Presentation(PDF)](competition_results/KLUE_2등_솔루션(9조)발표자료.pdf)
 ## [Competition Report(PDF)](competition_results/Competition%20Report.pdf)
 ## Our solutions
 - 'klue/roberta-large' with BiLSTM
